@@ -186,6 +186,32 @@ cd backend
 pytest -v
 ```
 
+## Documentation
+
+| Document | Description |
+|---|---|
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full protocol specification — primitives, security model, policy rules, risk scoring, threat model, and limitations |
+| [docs/API.md](docs/API.md) | API reference for all endpoints with request/response examples and curl commands |
+| [PLAN.md](PLAN.md) | Implementation plan, build order, and test plan |
+
+## Demo
+
+Run the automated demo script to execute all 6 scenarios and see the results:
+
+```bash
+./scripts/demo.sh
+```
+
+The script will:
+1. Check that Python and Node.js are installed
+2. Install backend dependencies
+3. Start the backend server
+4. Run all 6 demo scenarios (1 safe, 5 attacks)
+5. Print a summary table of allowed/blocked results
+6. Fetch and display the dashboard overview
+7. Verify ledger integrity
+8. Clean up the server
+
 ## Demo Scenarios
 
 PACT includes 6 deterministic demo scenarios:
