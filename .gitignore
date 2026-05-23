@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+*.db
+*.sqlite3
+
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keys (never commit real keys)
+keys/
+*.key
+*.pem
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
