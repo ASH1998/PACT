@@ -78,9 +78,13 @@ export default function Runs() {
                     <td className="py-2 pr-4 text-right font-mono text-red-400">{r.blocked_actions}</td>
                     <td className="py-2 pr-4 text-right font-mono">{r.max_risk_score}</td>
                     <td className="py-2">
-                      <span className={r.ledger_valid ? 'text-green-400' : 'text-red-400'}>
-                        {r.ledger_valid ? '✓ valid' : '✗ invalid'}
-                      </span>
+                      {r.ledger_valid === null || r.ledger_valid === undefined ? (
+                        <span className="text-gray-500">not checked</span>
+                      ) : r.ledger_valid ? (
+                        <span className="text-green-400">✓ verified</span>
+                      ) : (
+                        <span className="text-red-400">✗ invalid</span>
+                      )}
                     </td>
                   </tr>
                 );

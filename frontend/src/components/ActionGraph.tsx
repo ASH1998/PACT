@@ -103,19 +103,41 @@ export default function ActionGraph({ run }: Props) {
 
       // Provenance source node (if any)
       if (a.provenance.influenced_by.length > 0) {
+        const allLabels = a.provenance.influenced_by;
         const provId = `prov-${a.step_id}`;
         n.push({
           id: provId,
           type: 'default',
           position: { x: 400, y },
-          data: { label: a.provenance.influenced_by[0] },
+          data: {
+            label: (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
+                {allLabels.map((label: string) => (
+                  <span
+                    key={label}
+                    style={{
+                      display: 'inline-block',
+                      fontSize: 9,
+                      padding: '1px 5px',
+                      borderRadius: 4,
+                      border: `1px solid ${label.startsWith('untrusted') ? '#ef444455' : '#22c55e55'}`,
+                      background: label.startsWith('untrusted') ? '#1a0505' : '#051a05',
+                      color: label.startsWith('untrusted') ? '#f87171' : '#86efac',
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            ),
+          },
           style: {
             background: '#1a1000',
             color: '#f59e0b',
             border: '1px solid #f59e0b55',
             borderRadius: 8,
             fontSize: 10,
-            width: 140,
+            width: 160,
             padding: '6px 10px',
           },
         });

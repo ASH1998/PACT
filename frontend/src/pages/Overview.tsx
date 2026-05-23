@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Shield, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Shield, CheckCircle, XCircle, AlertTriangle, Play, Loader2, Zap } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -9,19 +9,51 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
-import { getDashboardOverview, DashboardOverview } from '../api/client';
+import {
+  getDashboardOverview,
+  DashboardOverview,
+  getScenarios,
+  runScenario,
+  ScenarioInfo,
+  ScenarioRunResponse,
+} from '../api/client';
 
 export default function Overview() {
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const [scenarios, setScenarios] = useState<ScenarioInfo[]>([]);
+  const [runningName, setRunningName] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<ScenarioRunResponse | null>(null);
+  const [runError, setRunError] = useState('');
+
+  const fetchDashboard = useCallback(() => {
     getDashboardOverview()
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+    getScenarios().then(setScenarios).catch(() => {});
+  }, [fetchDashboard]);
+
+  async function handleRun(name: string) {
+    setRunningName(name);
+    setLastResult(null);
+    setRunError('');
+    try {
+      const result = await runScenario(name);
+      setLastResult(result);
+      fetchDashboard(); // auto-refresh metrics
+    } catch (e: unknown) {
+      setRunError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunningName(null);
+    }
+  }
 
   if (loading) return <Skeleton />;
   if (error) return <div className="text-red-400 text-sm p-8">Error: {error}</div>;
@@ -57,6 +89,85 @@ export default function Overview() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Run Scenario */}
+      <div className="soc-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Zap className="w-4 h-4 text-pact-accent" />
+          <h2 className="text-sm font-medium text-gray-300">Run Scenario</h2>
+        </div>
+        {scenarios.length === 0 ? (
+          <div className="text-gray-500 text-xs py-4 text-center">Loading scenarios…</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {scenarios.map((s) => {
+              const isRunning = runningName === s.name;
+              return (
+                <button
+                  key={s.name}
+                  onClick={() => handleRun(s.name)}
+                  disabled={runningName !== null}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded border transition-colors text-left
+                    ${isRunning
+                      ? 'border-pact-accent bg-pact-accent/10'
+                      : 'border-pact-border bg-pact-surface hover:border-pact-accent/60 hover:bg-pact-surface/80'}
+                    disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isRunning ? (
+                    <Loader2 className="w-4 h-4 text-pact-accent animate-spin flex-shrink-0" />
+                  ) : (
+                    <Play className="w-4 h-4 text-pact-accent flex-shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-gray-200 truncate">
+                      {s.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </div>
+                    <div className="text-[10px] text-gray-500 truncate">{s.description}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Run result */}
+        {lastResult && (
+          <div className="mt-3 rounded border border-pact-border bg-pact-bg/60 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="w-4 h-4 text-pact-success" />
+              <span className="text-xs font-medium text-gray-200">
+                {lastResult.scenario_name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} — Results
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-3 text-center">
+              <div>
+                <div className="text-lg font-bold font-mono text-gray-100">{lastResult.total_actions}</div>
+                <div className="text-[10px] text-gray-500">Total</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold font-mono text-pact-success">{lastResult.allowed_actions}</div>
+                <div className="text-[10px] text-gray-500">Allowed</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold font-mono text-pact-danger">{lastResult.blocked_actions}</div>
+                <div className="text-[10px] text-gray-500">Blocked</div>
+              </div>
+              <div>
+                <div className={`text-lg font-bold font-mono ${lastResult.max_risk_score >= 70 ? 'text-pact-danger' : lastResult.max_risk_score >= 40 ? 'text-pact-warning' : 'text-pact-success'}`}>
+                  {lastResult.max_risk_score}
+                </div>
+                <div className="text-[10px] text-gray-500">Max Risk</div>
+              </div>
+            </div>
+          </div>
+        )}
+        {runError && (
+          <div className="mt-2 text-xs text-red-400 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {runError}
+          </div>
+        )}
       </div>
 
       {/* Risk timeline chart */}

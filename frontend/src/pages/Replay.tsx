@@ -9,22 +9,33 @@ import {
   CheckCircle,
   XCircle,
   Shield,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
-import { getReplay, ReplayData, ReplayStepData } from '../api/client';
+import { getReplay, getRun, ReplayData, ReplayStepData, RunDetail as RunDetailType } from '../api/client';
+import ActionGraph from '../components/ActionGraph';
 
 export default function Replay() {
   const { runId } = useParams<{ runId: string }>();
   const [data, setData] = useState<ReplayData | null>(null);
+  const [runDetail, setRunDetail] = useState<RunDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!runId) return;
-    getReplay(runId)
-      .then(setData)
+    Promise.all([
+      getReplay(runId),
+      getRun(runId).catch(() => null),
+    ])
+      .then(([replay, run]) => {
+        setData(replay);
+        setRunDetail(run);
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [runId]);
@@ -85,6 +96,24 @@ export default function Replay() {
           {current + 1} / {total} steps
         </div>
       </div>
+
+      {/* Action Graph (collapsible) */}
+      {runDetail && (
+        <div>
+          <button
+            onClick={() => setShowGraph(!showGraph)}
+            className="text-xs text-pact-accent hover:underline flex items-center gap-1"
+          >
+            {showGraph ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            {showGraph ? 'Hide' : 'Show'} Action Graph
+          </button>
+          {showGraph && (
+            <div className="soc-card mt-2" style={{ height: 360 }}>
+              <ActionGraph run={runDetail} />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-4" style={{ minHeight: 500 }}>
         {/* Timeline (left) */}
@@ -159,9 +188,46 @@ function CtrlBtn({
   );
 }
 
+/* ---------- Narrative generation ---------- */
+
+function getStepNarrative(step: ReplayStepData): string[] {
+  const events: string[] = [];
+
+  // What the agent is doing
+  events.push(`Agent calls ${step.tool}`);
+
+  // What data influenced it
+  if (step.provenance?.influenced_by?.length) {
+    const labels = step.provenance.influenced_by;
+    const untrusted = labels.filter((l: string) => l.startsWith('untrusted.'));
+    if (untrusted.length) {
+      events.push(`⚠️ Influenced by ${untrusted.join(', ')}`);
+    }
+  }
+
+  // Policy decision
+  events.push(`Policy: ${step.policy_decision.decision} (risk: ${step.policy_decision.risk_score})`);
+
+  // Reasons
+  if (step.policy_decision.reasons?.length) {
+    step.policy_decision.reasons.forEach((r: string) => events.push(`→ ${r}`));
+  }
+
+  // Integrity
+  events.push(`Signature: ${step.signature_valid ? '✅ valid' : '❌ invalid'}`);
+  events.push(`Chain: ${step.chain_valid ? '✅ intact' : '❌ broken'}`);
+
+  return events;
+}
+
+/* ---------- Step detail with narrative ---------- */
+
 function StepDetail({ step }: { step: ReplayStepData }) {
   const pd = step.policy_decision;
   const isBlocked = pd.decision === 'BLOCK';
+  const narrative = getStepNarrative(step);
+  const [showEnvelope, setShowEnvelope] = useState(false);
+  const [showProvenance, setShowProvenance] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -174,6 +240,14 @@ function StepDetail({ step }: { step: ReplayStepData }) {
         <span className={isBlocked ? 'badge-block' : 'badge-allow'}>{pd.decision}</span>
       </div>
 
+      {/* Narrative events card */}
+      <div className="soc-card">
+        <div className="text-xs font-medium text-gray-400 mb-2">Protocol Events</div>
+        <ul className="space-y-1.5">
+          {native_map(narrative)}
+        </ul>
+      </div>
+
       {/* Metadata grid */}
       <div className="grid grid-cols-2 gap-4 text-xs">
         <Field label="Timestamp" value={step.timestamp ? new Date(step.timestamp).toLocaleString() : '—'} />
@@ -184,60 +258,74 @@ function StepDetail({ step }: { step: ReplayStepData }) {
         <Field label="Parent Hash" value={step.parent_action_hash ?? '—'} mono />
       </div>
 
-      {/* Provenance */}
-      <Section title="Provenance">
-        <div className="text-xs space-y-1">
-          <div>
-            <span className="text-gray-500">Influenced by:</span>{' '}
-            <span className="text-gray-300">{step.provenance.influenced_by.join(', ') || '—'}</span>
+      {/* Provenance (expandable) */}
+      <div>
+        <button
+          onClick={() => setShowProvenance(!showProvenance)}
+          className="text-xs text-pact-accent hover:underline flex items-center gap-1"
+        >
+          {showProvenance ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          Provenance Details
+        </button>
+        {showProvenance && (
+          <div className="mt-2 text-xs space-y-1 pl-4 border-l border-pact-border/30">
+            <div>
+              <span className="text-gray-500">Influenced by:</span>{' '}
+              <span className="text-gray-300">{step.provenance.influenced_by.join(', ') || '—'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Uses data:</span>{' '}
+              <span className="text-gray-300">{step.provenance.uses_data.join(', ') || '—'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Side effect:</span>{' '}
+              <span className="text-gray-300">{step.provenance.side_effect ?? '—'}</span>
+            </div>
           </div>
-          <div>
-            <span className="text-gray-500">Uses data:</span>{' '}
-            <span className="text-gray-300">{step.provenance.uses_data.join(', ') || '—'}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Side effect:</span>{' '}
-            <span className="text-gray-300">{step.provenance.side_effect ?? '—'}</span>
-          </div>
-        </div>
-      </Section>
-
-      {/* Policy reasons */}
-      <Section title="Policy Decision Reasons">
-        {pd.reasons.length === 0 ? (
-          <div className="text-gray-500 text-xs">No reasons</div>
-        ) : (
-          <ul className="text-xs space-y-1">
-            {pd.reasons.map((r, i) => (
-              <li key={i} className="flex items-start gap-1.5">
-                <span className="text-gray-500">•</span>
-                <span className="text-gray-300">{r}</span>
-              </li>
-            ))}
-          </ul>
         )}
-      </Section>
+      </div>
 
-      {/* Integrity */}
-      <Section title="Integrity">
-        <div className="flex gap-4 text-xs">
-          <span className={step.signature_valid ? 'text-green-400' : 'text-red-400'}>
-            {step.signature_valid ? '✓ Signature valid' : '✗ Signature invalid'}
-          </span>
-          <span className={step.chain_valid ? 'text-green-400' : 'text-red-400'}>
-            {step.chain_valid ? '✓ Chain valid' : '✗ Chain broken'}
-          </span>
-        </div>
-      </Section>
-
-      {/* Envelope JSON */}
-      <Section title="Envelope JSON">
-        <pre className="text-[10px] text-gray-400 bg-pact-bg rounded p-3 overflow-auto max-h-48 font-mono">
-          {JSON.stringify(step.envelope, null, 2)}
-        </pre>
-      </Section>
+      {/* Envelope JSON (expandable) */}
+      <div>
+        <button
+          onClick={() => setShowEnvelope(!showEnvelope)}
+          className="text-xs text-pact-accent hover:underline flex items-center gap-1"
+        >
+          {showEnvelope ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          Envelope JSON
+        </button>
+        {showEnvelope && (
+          <pre className="mt-2 text-[10px] text-gray-400 bg-pact-bg rounded p-3 overflow-auto max-h-48 font-mono">
+            {JSON.stringify(step.envelope, null, 2)}
+          </pre>
+        )}
+      </div>
     </div>
   );
+}
+
+function native_map(narrative: string[]) {
+  return narrative.map((event, i) => {
+    const isWarning = event.startsWith('⚠️');
+    const isDecision = event.startsWith('Policy:');
+    const isReason = event.startsWith('→');
+    const isSigOk = event.includes('✅');
+    const isSigBad = event.includes('❌');
+
+    let colorClass = 'text-gray-300';
+    if (isWarning) colorClass = 'text-yellow-400';
+    else if (isDecision) colorClass = 'text-blue-300';
+    else if (isReason) colorClass = 'text-gray-400';
+    else if (isSigBad) colorClass = 'text-red-400';
+    else if (isSigOk) colorClass = 'text-green-400';
+
+    return (
+      <li key={i} className={`text-xs ${colorClass} flex items-start gap-1.5`}>
+        <span className="text-gray-600 shrink-0">•</span>
+        <span>{event}</span>
+      </li>
+    );
+  });
 }
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
@@ -245,15 +333,6 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
     <div>
       <div className="text-[10px] text-gray-500 uppercase tracking-wider">{label}</div>
       <div className={`text-sm text-gray-200 truncate ${mono ? 'font-mono text-xs' : ''}`}>{value}</div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-gray-400 mb-2">{title}</div>
-      {children}
     </div>
   );
 }

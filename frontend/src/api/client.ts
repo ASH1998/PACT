@@ -47,7 +47,7 @@ export interface RunSummary {
   allowed_actions: number;
   blocked_actions: number;
   max_risk_score: number;
-  ledger_valid: boolean;
+  ledger_valid: boolean | null;
 }
 
 export interface PolicyDecisionData {
