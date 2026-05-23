@@ -159,7 +159,7 @@ Capability tokens are the authorization primitive. They are issued per-action, b
 | `max_uses` | integer | Maximum number of times this token can be used |
 | `uses_remaining` | integer | Number of remaining uses (decremented on each use) |
 | `expires_at` | datetime | Token expiry timestamp (ISO 8601) |
-| `signature` | string | Ed25519 signature of the token fields by the issuer |
+| `signature` | string | Ed25519 signature of the immutable token fields (excludes `uses_remaining`) |
 
 **Example:**
 
@@ -186,11 +186,13 @@ Capability tokens are the authorization primitive. They are issued per-action, b
 - `uses_remaining` is zero (exhausted)
 - Signature is invalid
 
+**Signature Coverage:** The `signature` covers only the immutable token fields: `token_type`, `token_hash`, `agent_id`, `intent_hash`, `capability`, `resource`, `max_uses`, and `expires_at`. The mutable field `uses_remaining` is **not** included in the signature — it is decremented on each use without invalidating the signature.
+
 **Security Properties:**
 - Short-lived (5-minute default TTL) limits the window for token theft.
 - Intent-bound — a token issued for email.read cannot be used for email.send.
 - Use-limited — prevents replay attacks with the same token.
-- Signed — tampering with any field invalidates the signature.
+- Signed — tampering with any immutable field invalidates the signature.
 
 ---
 
@@ -652,6 +654,12 @@ PACT MVP has deliberate limitations. Understanding these is important for evalua
 9. **Human approval flow** — `REQUIRE_APPROVAL` decisions are logged but the actual human approval workflow is a stretch feature.
 
 10. **Nondeterministic agent behavior** — MVP scenarios are deterministic. PACT does not handle the variability of real LLM agent outputs.
+
+---
+
+## Approval Flow (Stretch)
+
+PACT defines REQUIRE_APPROVAL as a policy decision for sensitive actions (e.g., shell execution). In the MVP, this decision is returned but the actual approval workflow (approval tokens, human-in-the-loop UI, timeout handling) is not implemented. This is documented as a stretch feature for post-MVP development.
 
 ---
 

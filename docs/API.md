@@ -352,9 +352,18 @@ Validate a capability token. Checks expiry, agent binding, intent binding, capab
   "token_hash": "sha256:e5f6a7b8...",
   "agent_id": "email-agent-001",
   "intent_hash": "sha256:a1b2c3d4e5f6...",
-  "capability": "email.read"
+  "capability": "email.read",
+  "resource": "latest_invoice_email"
 }
 ```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `token_hash` | string | Yes | SHA-256 hash of the capability token to validate |
+| `agent_id` | string | Yes | Agent ID to validate against |
+| `intent_hash` | string | Yes | Intent hash to validate against |
+| `capability` | string | Yes | Capability/action to validate against |
+| `resource` | string | No | Resource to validate against (defaults to empty string) |
 
 ```bash
 curl -X POST http://localhost:8000/capabilities/validate \
@@ -363,7 +372,8 @@ curl -X POST http://localhost:8000/capabilities/validate \
     "token_hash": "sha256:e5f6a7b8...",
     "agent_id": "email-agent-001",
     "intent_hash": "sha256:a1b2c3d4e5f6...",
-    "capability": "email.read"
+    "capability": "email.read",
+    "resource": "latest_invoice_email"
   }'
 ```
 
@@ -385,6 +395,8 @@ curl -X POST http://localhost:8000/capabilities/validate \
 }
 ```
 
+> **Note:** The `signature` covers only the immutable token fields (`token_type`, `token_hash`, `agent_id`, `intent_hash`, `capability`, `resource`, `max_uses`, `expires_at`). The mutable field `uses_remaining` is **not** included in the signature — it is decremented on each use without invalidating the signature.
+
 **Error Codes:**
 
 | Code | Description |
@@ -400,34 +412,11 @@ curl -X POST http://localhost:8000/capabilities/validate \
 
 Execute a tool call through the PACT Gateway. **Only accepts PACT Action Envelopes** — raw tool calls are always rejected.
 
-**Request Body:** A complete PACT Action Envelope.
+**Request Body:** A `ToolCallRequest` wrapping the envelope and an optional `run_id`.
 
 ```json
 {
-  "protocol": "PACT/0.1",
-  "run_id": "run_abc123",
-  "step_id": 0,
-  "agent_id": "email-agent-001",
-  "tool": "email.read",
-  "args": {"email_id": "latest"},
-  "args_digest": "sha256:...",
-  "intent_hash": "sha256:a1b2c3d4...",
-  "capability_token_hash": "sha256:e5f6a7b8...",
-  "provenance": {
-    "influenced_by": ["trusted.user"],
-    "uses_data": [],
-    "side_effect": null
-  },
-  "parent_action_hash": null,
-  "timestamp": "2026-05-24T10:01:00Z",
-  "agent_signature": "base64-encoded-signature..."
-}
-```
-
-```bash
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
+  "envelope": {
     "protocol": "PACT/0.1",
     "run_id": "run_abc123",
     "step_id": 0,
@@ -445,6 +434,40 @@ curl -X POST http://localhost:8000/tools/call \
     "parent_action_hash": null,
     "timestamp": "2026-05-24T10:01:00Z",
     "agent_signature": "base64-encoded-signature..."
+  },
+  "run_id": ""
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `envelope` | object | Yes | A complete PACT Action Envelope (see [Action Envelope](#post-toolscall)) |
+| `run_id` | string | No | Optional run ID override. If empty, the `run_id` from the envelope is used. If both are empty, a new run ID is generated. |
+
+```bash
+curl -X POST http://localhost:8000/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "envelope": {
+      "protocol": "PACT/0.1",
+      "run_id": "run_abc123",
+      "step_id": 0,
+      "agent_id": "email-agent-001",
+      "tool": "email.read",
+      "args": {"email_id": "latest"},
+      "args_digest": "sha256:...",
+      "intent_hash": "sha256:a1b2c3d4...",
+      "capability_token_hash": "sha256:e5f6a7b8...",
+      "provenance": {
+        "influenced_by": ["trusted.user"],
+        "uses_data": [],
+        "side_effect": null
+      },
+      "parent_action_hash": null,
+      "timestamp": "2026-05-24T10:01:00Z",
+      "agent_signature": "base64-encoded-signature..."
+    },
+    "run_id": ""
   }'
 ```
 
