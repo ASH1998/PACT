@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Policy Decision",
+  "description": "Output of the policy engine evaluating a PACT action envelope.",
+  "type": "object",
+  "required": [
+    "decision",
+    "risk_score",
+    "severity",
+    "reasons"
+  ],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": ["ALLOW", "BLOCK", "REQUIRE_APPROVAL"],
+      "description": "Policy verdict on the action."
+    },
+    "risk_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Computed risk score (0-100)."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Severity classification derived from the risk score."
+    },
+    "reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Human-readable list of reasons for the decision."
+    }
+  }
+}

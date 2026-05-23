@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PACT Action Envelope",
+  "description": "Signed envelope wrapping every tool call with identity, intent, capability, provenance, and trace context.",
+  "type": "object",
+  "required": [
+    "protocol",
+    "run_id",
+    "step_id",
+    "agent_id",
+    "tool",
+    "args",
+    "args_digest",
+    "intent_hash",
+    "capability_token_hash",
+    "provenance",
+    "parent_action_hash",
+    "timestamp",
+    "agent_signature"
+  ],
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "const": "PACT/0.1",
+      "description": "Protocol version identifier."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for the agent run."
+    },
+    "step_id": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Sequential step number within the run."
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "ID of the agent performing the action."
+    },
+    "tool": {
+      "type": "string",
+      "description": "Tool action being called (e.g. email.send)."
+    },
+    "args": {
+      "type": "object",
+      "description": "Tool call arguments."
+    },
+    "args_digest": {
+      "type": "string",
+      "description": "SHA-256 hash of canonicalized tool args."
+    },
+    "intent_hash": {
+      "type": "string",
+      "description": "Hash of the intent contract this action is bound to."
+    },
+    "capability_token_hash": {
+      "type": "string",
+      "description": "Hash of the capability token authorizing this action."
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["influenced_by", "uses_data", "side_effect"],
+      "properties": {
+        "influenced_by": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Provenance labels of data that influenced this action."
+        },
+        "uses_data": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Provenance labels of data used by this action."
+        },
+        "side_effect": {
+          "type": ["string", "null"],
+          "description": "Side-effect label if this action has external impact (e.g. external_write), or null."
+        }
+      },
+      "description": "Provenance context for this action."
+    },
+    "parent_action_hash": {
+      "type": ["string", "null"],
+      "description": "Hash of the previous action in the run, or null for the first action."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Action timestamp (ISO 8601)."
+    },
+    "agent_signature": {
+      "type": "string",
+      "description": "Ed25519 signature of the envelope (excluding this field) by the agent's private key (base64-encoded)."
+    }
+  }
+}

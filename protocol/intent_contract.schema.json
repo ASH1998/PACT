@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Intent Contract",
+  "description": "Security contract derived from the user's original goal, binding future actions to allowed capabilities.",
+  "type": "object",
+  "required": [
+    "intent_id",
+    "user_goal",
+    "allowed_actions",
+    "forbidden_actions",
+    "risk_budget",
+    "approval_required_for",
+    "intent_hash"
+  ],
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "Unique identifier for the intent."
+    },
+    "user_goal": {
+      "type": "string",
+      "description": "The user's original goal in natural language."
+    },
+    "allowed_actions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of tool actions permitted under this intent."
+    },
+    "forbidden_actions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of tool actions explicitly forbidden under this intent."
+    },
+    "risk_budget": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Maximum acceptable risk level for actions under this intent."
+    },
+    "approval_required_for": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Action categories that require human approval before execution."
+    },
+    "intent_hash": {
+      "type": "string",
+      "description": "SHA-256 hash of the canonicalized intent fields."
+    }
+  }
+}

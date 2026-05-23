@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Capability Token",
+  "description": "Short-lived, scoped, intent-bound permission token granting an agent access to a specific tool and resource.",
+  "type": "object",
+  "required": [
+    "token_type",
+    "token_hash",
+    "agent_id",
+    "intent_hash",
+    "capability",
+    "resource",
+    "max_uses",
+    "uses_remaining",
+    "expires_at",
+    "signature"
+  ],
+  "properties": {
+    "token_type": {
+      "type": "string",
+      "const": "PACT-CAP",
+      "description": "Fixed token type identifier."
+    },
+    "token_hash": {
+      "type": "string",
+      "description": "SHA-256 hash of the canonicalized token fields."
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Agent this token is issued to."
+    },
+    "intent_hash": {
+      "type": "string",
+      "description": "Intent contract this token is bound to."
+    },
+    "capability": {
+      "type": "string",
+      "description": "The specific tool action this token permits (e.g. email.read)."
+    },
+    "resource": {
+      "type": "string",
+      "description": "The specific resource this token grants access to."
+    },
+    "max_uses": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum number of times this token can be used."
+    },
+    "uses_remaining": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of remaining uses."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Token expiry timestamp (ISO 8601)."
+    },
+    "signature": {
+      "type": "string",
+      "description": "Ed25519 signature of the token fields by the issuer (base64-encoded)."
+    }
+  }
+}
