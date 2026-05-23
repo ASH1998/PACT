@@ -7,7 +7,7 @@ def email_read(email_id: str = "latest", **kwargs) -> dict:
 
     if email_id == "latest":
         return SEED_DATA["normal_invoice_email"]
-    return SEED_DATA.get(email_id, {"error": "Email not found"})
+    return SEED_DATA.get(email_id, SEED_DATA.get("normal_invoice_email", {"error": "Email not found"}))
 
 
 def email_send(to: str, subject: str = "", body: str = "", **kwargs) -> dict:

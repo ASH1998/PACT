@@ -168,3 +168,100 @@ async def test_consume_use_rejects_exhausted(cap_service, setup_db):
         # Second attempt should fail
         success2 = await cap_service.consume_use(db, token_hash)
         assert success2 is False
+
+
+async def test_multi_use_token_stays_valid(cap_service, setup_db):
+    """A multi-use token remains valid after consuming uses (until exhausted)."""
+    from app.database import async_session
+    async with async_session() as db:
+        result = await cap_service.issue_token(
+            db=db,
+            agent_id="agent_multi",
+            intent_hash="sha256:multi",
+            capability="web.read",
+            max_uses=3,
+        )
+        token_hash = result["token_hash"]
+
+        # Validate before any consumption
+        valid, reason = await cap_service.validate_token(
+            db=db,
+            token_hash=token_hash,
+            agent_id="agent_multi",
+            intent_hash="sha256:multi",
+            capability="web.read",
+        )
+        assert valid is True, f"Should be valid before consumption: {reason}"
+
+        # Consume 1st use
+        assert await cap_service.consume_use(db, token_hash) is True
+        valid, reason = await cap_service.validate_token(
+            db=db,
+            token_hash=token_hash,
+            agent_id="agent_multi",
+            intent_hash="sha256:multi",
+            capability="web.read",
+        )
+        assert valid is True, f"Should be valid after 1st consumption: {reason}"
+
+        # Consume 2nd use
+        assert await cap_service.consume_use(db, token_hash) is True
+        valid, reason = await cap_service.validate_token(
+            db=db,
+            token_hash=token_hash,
+            agent_id="agent_multi",
+            intent_hash="sha256:multi",
+            capability="web.read",
+        )
+        assert valid is True, f"Should be valid after 2nd consumption: {reason}"
+
+        # Consume 3rd use (now exhausted)
+        assert await cap_service.consume_use(db, token_hash) is True
+
+        # Should be exhausted now
+        valid, reason = await cap_service.validate_token(
+            db=db,
+            token_hash=token_hash,
+            agent_id="agent_multi",
+            intent_hash="sha256:multi",
+            capability="web.read",
+        )
+        assert valid is False, "Should be invalid after all uses consumed"
+        assert "exhaust" in reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_validate_with_resource_binding(cap_service, setup_db):
+    """Token issued for resource A should fail for resource B."""
+    from app.database import async_session
+
+    async with async_session() as db:
+        # Issue for resource "inbox"
+        token = await cap_service.issue_token(
+            db=db,
+            agent_id="agent_res_bind",
+            intent_hash="sha256:resbind",
+            capability="email.read",
+            resource="inbox",
+        )
+        # Validate with correct resource
+        valid, _ = await cap_service.validate_token(
+            db=db,
+            token_hash=token["token_hash"],
+            agent_id="agent_res_bind",
+            intent_hash="sha256:resbind",
+            capability="email.read",
+            resource="inbox",
+        )
+        assert valid is True
+        # Validate with wrong resource
+        valid, reason = await cap_service.validate_token(
+            db=db,
+            token_hash=token["token_hash"],
+            agent_id="agent_res_bind",
+            intent_hash="sha256:resbind",
+            capability="email.read",
+            resource="outbox",
+        )
+        assert valid is False
+        assert "resource" in reason.lower()

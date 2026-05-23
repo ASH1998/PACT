@@ -7,8 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.agent import Agent
 from app.schemas import AgentRegisterRequest, AgentResponse
+from app.crypto.issuer import ISSUER_PRIVATE_KEY, ISSUER_PUBLIC_KEY
 
 router = APIRouter()
+
+# Module-level singleton issuer keypair — reused across all requests
+_ISSUER_PRIVATE = ISSUER_PRIVATE_KEY
+_ISSUER_PUBLIC = ISSUER_PUBLIC_KEY
 
 
 @router.post("/register", response_model=dict)
@@ -18,11 +23,8 @@ async def register_agent(
 ):
     """Register a new agent and return its passport + private key."""
     from app.services.passport import PassportService
-    from app.crypto import generate_keypair
 
-    # For demo: generate issuer keys on the fly (in production, use a fixed issuer key)
-    issuer_private, issuer_public = generate_keypair()
-    svc = PassportService(issuer_private, issuer_public)
+    svc = PassportService(_ISSUER_PRIVATE, _ISSUER_PUBLIC)
 
     # Check if agent already exists
     existing = await db.execute(select(Agent).where(Agent.agent_id == req.agent_id))

@@ -54,15 +54,26 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     )
     top_attacked_tools = [{"tool": row[0], "count": row[1]} for row in top_tools_result.all()]
 
-    # Top provenance sources
-    # This is a simplified version; real implementation would parse provenance_json
-    top_prov_result = await db.execute(
-        select(Action.tool, func.count(Action.id).label("count"))
-        .group_by(Action.tool)
-        .order_by(func.count(Action.id).desc())
-        .limit(5)
-    )
-    top_provenance_sources = [{"source": row[0], "count": row[1]} for row in top_prov_result.all()]
+    # Top provenance sources — count actual provenance labels from actions
+    from collections import Counter
+    actions_all_result = await db.execute(select(Action))
+    all_actions = actions_all_result.scalars().all()
+
+    label_counts = Counter()
+    for a in all_actions:
+        try:
+            prov = json.loads(a.provenance_json)
+            for label in prov.get("influenced_by", []):
+                label_counts[label] += 1
+            for label in prov.get("uses_data", []):
+                label_counts[label] += 1
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+    top_provenance_sources = [
+        {"source": label, "count": count}
+        for label, count in label_counts.most_common(5)
+    ]
 
     # Risk timeline (simplified: recent decisions)
     timeline_result = await db.execute(

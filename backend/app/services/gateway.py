@@ -14,6 +14,7 @@ from app.services.provenance import ProvenanceService
 from app.services.policy import PolicyService
 from app.services.ledger import LedgerService
 from app.tools import get_mock_tool
+from app.tools.resource import resource_from_args
 
 
 class GatewayService:
@@ -57,12 +58,42 @@ class GatewayService:
         # Step 1: Verify agent passport
         passport = await self.passport_service.get_passport(db, agent_id)
         if not passport:
-            # No passport — create envelope-level rejection
+            # No passport — compute dummy action_hash and record in ledger
+            from app.models.policy_decision import PolicyDecision as PolicyDecisionModel
+
+            action_hash = await self.ledger_service.append_action(
+                db=db,
+                run_id=run_id,
+                step_id=step_id,
+                agent_id=agent_id,
+                tool=tool,
+                args_digest=envelope.get("args_digest", ""),
+                intent_hash=envelope.get("intent_hash", ""),
+                capability_token_hash=envelope.get("capability_token_hash", ""),
+                provenance=provenance,
+                parent_action_hash=parent_action_hash,
+                agent_signature=agent_signature,
+                status="blocked",
+            )
+
+            pd_record = PolicyDecisionModel(
+                run_id=run_id,
+                action_hash=action_hash,
+                decision="BLOCK",
+                risk_score=100,
+                severity="critical",
+                reasons_json='["Agent not registered: no passport found"]',
+            )
+            db.add(pd_record)
+            await db.commit()
+
             response = ToolCallResponse(
                 decision=Decision.BLOCK,
                 risk_score=100,
                 severity="critical",
                 reasons=["Agent not registered: no passport found"],
+                action_hash=action_hash,
+                run_id=run_id,
             )
             return response
 
@@ -82,8 +113,11 @@ class GatewayService:
         cap_reason = "Valid"
         token_hash = envelope.get("capability_token_hash", "")
         if intent:
+            # Extract resource from args for validation
+            args = envelope.get("args", {})
+            resource = resource_from_args(tool, args)
             cap_valid, cap_reason = await self.capability_service.validate_token(
-                db, token_hash, agent_id, envelope.get("intent_hash", ""), tool
+                db, token_hash, agent_id, envelope.get("intent_hash", ""), tool, resource=resource
             )
 
         # Step 5: Evaluate policy
@@ -123,6 +157,8 @@ class GatewayService:
             parent_action_hash=parent_action_hash,
             agent_signature=agent_signature,
             status=action_status,
+            args_json=json.dumps(envelope.get("args", {})),
+            envelope_timestamp=envelope.get("timestamp", ""),
         )
 
         # Step 8: If ALLOW, execute the mock tool
@@ -157,4 +193,5 @@ class GatewayService:
             reasons=policy_decision.reasons,
             tool_result=tool_result,
             action_hash=action_hash,
+            run_id=run_id,
         )

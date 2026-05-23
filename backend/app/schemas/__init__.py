@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # --- Enums ---
@@ -139,6 +139,7 @@ class CapabilityValidateRequest(BaseModel):
     agent_id: str
     intent_hash: str
     capability: str
+    resource: str = ""
 
 
 class CapabilityResponse(BaseModel):
@@ -181,7 +182,37 @@ class ActionEnvelope(BaseModel):
 
 class ToolCallRequest(BaseModel):
     """Used by the scenario runner / runtime to submit a tool call through the gateway."""
-    envelope: ActionEnvelope
+    envelope: dict
+    run_id: str = ""
+
+    @model_validator(mode='after')
+    def validate_envelope_shape(self) -> 'ToolCallRequest':
+        required = ['protocol', 'run_id', 'step_id', 'agent_id', 'tool', 'args', 'args_digest', 'intent_hash', 'capability_token_hash', 'provenance', 'timestamp', 'agent_signature']
+        missing = [f for f in required if f not in self.envelope]
+        if missing:
+            raise ValueError(f'Envelope missing required fields: {missing}')
+
+        # Validate protocol version
+        if self.envelope.get('protocol') != 'PACT/0.1':
+            raise ValueError(f"Unsupported protocol: {self.envelope.get('protocol')}")
+
+        # Validate provenance shape
+        prov = self.envelope.get('provenance', {})
+        if not isinstance(prov, dict):
+            raise ValueError('provenance must be an object')
+        for field in ['influenced_by', 'uses_data', 'side_effect']:
+            if field not in prov:
+                raise ValueError(f'provenance missing field: {field}')
+
+        # Validate step_id is int
+        if not isinstance(self.envelope.get('step_id'), int):
+            raise ValueError('step_id must be an integer')
+
+        # Validate args is dict
+        if not isinstance(self.envelope.get('args'), dict):
+            raise ValueError('args must be an object')
+
+        return self
 
 
 class ToolCallResponse(BaseModel):
@@ -191,6 +222,7 @@ class ToolCallResponse(BaseModel):
     reasons: list[str]
     tool_result: Optional[dict] = None
     action_hash: Optional[str] = None
+    run_id: str = ""
 
 
 # --- Policy Decision ---
@@ -216,7 +248,7 @@ class RunResponse(BaseModel):
     allowed_actions: int = 0
     blocked_actions: int = 0
     max_risk_score: int = 0
-    ledger_valid: bool = True
+    ledger_valid: bool | None = None
 
 
 class ActionResponse(BaseModel):

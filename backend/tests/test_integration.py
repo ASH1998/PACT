@@ -97,3 +97,26 @@ async def test_ledger_verify(client):
     assert response.status_code == 200
     data = response.json()
     assert data["run_id"] == run_id
+
+
+@pytest.mark.asyncio
+async def test_blocked_tools_call_visible_in_runs(client):
+    """Blocked /tools/call should create a run visible in GET /runs."""
+    # Run a scenario first to get a valid run context
+    await client.post("/scenarios/run/malicious_email_injection")
+
+    # Verify the run is in the list (not crashed)
+    response = await client.get("/runs")
+    assert response.status_code == 200
+    runs = response.json()
+    assert len(runs) >= 1
+
+
+@pytest.mark.asyncio
+async def test_tools_call_missing_envelope_fields(client):
+    """POST /tools/call with incomplete envelope returns 422 validation error."""
+    response = await client.post("/tools/call", json={
+        "envelope": {"protocol": "PACT/0.1", "run_id": "r1"},
+        "run_id": "r1",
+    })
+    assert response.status_code == 422

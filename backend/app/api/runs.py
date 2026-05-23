@@ -1,6 +1,7 @@
 """Run API routes — list and inspect agent runs."""
 
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -17,6 +18,7 @@ from app.schemas import (
     ReplayStep,
     PolicyDecision,
     ProvenanceContext,
+    ActionEnvelope,
     ActionStatus,
     RunStatus,
     Severity,
@@ -62,7 +64,6 @@ async def list_runs(db: AsyncSession = Depends(get_db)):
             allowed_actions=allowed,
             blocked_actions=blocked,
             max_risk_score=max_risk,
-            ledger_valid=True,
         ))
 
     return responses
@@ -136,7 +137,7 @@ async def get_replay(run_id: str, db: AsyncSession = Depends(get_db)):
     actions = actions_result.scalars().all()
 
     steps = []
-    for a in actions:
+    for i, a in enumerate(actions):
         # Get policy decision
         pd_result = await db.execute(
             select(PolicyDecisionModel).where(PolicyDecisionModel.action_hash == a.action_hash)
@@ -151,43 +152,97 @@ async def get_replay(run_id: str, db: AsyncSession = Depends(get_db)):
             reasons=json.loads(pd.reasons_json) if pd else [],
         )
 
+        # Load stored args from args_json
+        try:
+            stored_args = json.loads(a.args_json) if a.args_json else {}
+        except (json.JSONDecodeError, TypeError):
+            stored_args = {}
+
+        # Use stored envelope timestamp, fallback to created_at
+        envelope_ts_str = a.envelope_timestamp if a.envelope_timestamp else (a.created_at.isoformat() if a.created_at else "")
+        try:
+            envelope_ts = datetime.fromisoformat(envelope_ts_str)
+            if envelope_ts.tzinfo is None:
+                envelope_ts = envelope_ts.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            envelope_ts = a.created_at or datetime.now(timezone.utc)
+
         # Build envelope-like structure for replay
         envelope = ActionEnvelope(
             run_id=a.run_id,
             step_id=a.step_id,
             agent_id=a.agent_id,
             tool=a.tool,
-            args={},  # Args not stored in action, only digest
+            args=stored_args,
             args_digest=a.args_digest,
             intent_hash=a.intent_hash,
             capability_token_hash=a.capability_token_hash,
             provenance=ProvenanceContext(**provenance),
             parent_action_hash=a.parent_action_hash,
-            timestamp=a.created_at,
+            timestamp=envelope_ts,
             agent_signature=a.agent_signature,
         )
 
+        # Actually verify signature
+        from app.services.envelope import EnvelopeService
+        from app.models.agent import Agent
+
+        envelope_svc = EnvelopeService()
+        sig_valid = False
+        agent_result = await db.execute(select(Agent).where(Agent.agent_id == a.agent_id))
+        agent = agent_result.scalar_one_or_none()
+        if agent:
+            envelope_dict = {
+                "protocol": "PACT/0.1",
+                "run_id": a.run_id,
+                "step_id": a.step_id,
+                "agent_id": a.agent_id,
+                "tool": a.tool,
+                "args": stored_args,
+                "args_digest": a.args_digest,
+                "intent_hash": a.intent_hash,
+                "capability_token_hash": a.capability_token_hash,
+                "provenance": provenance,
+                "parent_action_hash": a.parent_action_hash,
+                "timestamp": envelope_ts.isoformat() if hasattr(envelope_ts, 'isoformat') else envelope_ts,
+                "agent_signature": a.agent_signature,
+            }
+            sig_valid, _ = envelope_svc.verify_envelope(envelope_dict, agent.public_key)
+
+        # Check chain linkage
+        chain_valid = True
+        if i == 0:
+            chain_valid = a.parent_action_hash is None
+        else:
+            prev_action = actions[i - 1]
+            chain_valid = a.parent_action_hash == prev_action.action_hash
+
         steps.append(ReplayStep(
             step_id=a.step_id,
-            timestamp=a.created_at,
+            timestamp=envelope_ts,
             agent_id=a.agent_id,
             tool=a.tool,
-            args={},
+            args=stored_args,
             provenance=ProvenanceContext(**provenance),
             envelope=envelope,
             policy_decision=policy,
             action_hash=a.action_hash,
             parent_action_hash=a.parent_action_hash,
-            signature_valid=True,
-            chain_valid=True,
+            signature_valid=sig_valid,
+            chain_valid=chain_valid,
         ))
+
+    # Verify ledger integrity
+    from app.services.ledger import LedgerService
+    ledger_svc = LedgerService()
+    ledger_valid, _ = await ledger_svc.verify_chain(db, run_id)
 
     return ReplayResponse(
         run_id=run.run_id,
         scenario_name=run.scenario_name,
         user_goal=run.user_goal,
         steps=steps,
-        ledger_valid=True,
+        ledger_valid=ledger_valid,
     )
 
 

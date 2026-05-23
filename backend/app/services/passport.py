@@ -90,10 +90,10 @@ class PassportService:
             return False, "Passport expired"
 
         # Verify issuer signature
-        sig = passport.pop("issuer_signature")
-        payload = canonical_json(passport)
+        passport_copy = {k: v for k, v in passport.items()}
+        sig = passport_copy.pop("issuer_signature")
+        payload = canonical_json(passport_copy)
         valid = verify(self.issuer_public_key, payload, sig)
-        passport["issuer_signature"] = sig  # restore
 
         if not valid:
             return False, "Invalid issuer signature"

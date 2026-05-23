@@ -15,6 +15,7 @@ from app.services.provenance import ProvenanceService
 from app.services.ledger import LedgerService
 from app.services.scenarios import get_scenario
 from app.models.run import Run
+from app.tools.resource import resource_from_args
 
 
 class RuntimeService:
@@ -45,7 +46,7 @@ class RuntimeService:
             return {"error": f"Unknown scenario: {scenario_name}"}
 
         run_id = f"run_{uuid.uuid4().hex[:12]}"
-        agent_id = scenario["agent_id"]
+        agent_id = f"{scenario['agent_id']}_{run_id}"
         user_goal = scenario["user_goal"]
 
         # Create run record
@@ -112,7 +113,7 @@ class RuntimeService:
                 agent_id=agent_id,
                 intent_hash=intent_hash,
                 capability=tool,
-                resource=args.get("email_id", args.get("path", args.get("url", "default"))),
+                resource=resource_from_args(tool, args),
                 max_uses=3,
                 ttl_seconds=300 if not step.get("expire_token") else 0,
             )

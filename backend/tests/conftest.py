@@ -1,33 +1,54 @@
-"""Test configuration for PACT backend."""
+"""Test configuration for PACT backend.
+
+Sets up an in-memory SQLite database before app modules are imported,
+then monkey-patches the engine to use StaticPool so all connections
+share the same in-memory database.
+"""
+
+import os
+
+# Force in-memory SQLite BEFORE app modules are imported
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite://"
 
 import pytest
-import asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
+# Now import app modules — engine is created with the env var above
+import app.database as db_mod
+from app.database import Base
 from app.main import app
-from app.database import init_db, engine, Base
+
+# Replace engine with StaticPool so all async connections share the same
+# in-memory database (required for aiosqlite + in-memory)
+_test_engine = create_async_engine(
+    "sqlite+aiosqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+    echo=False,
+)
+_test_session_factory = async_sessionmaker(
+    _test_engine, class_=AsyncSession, expire_on_commit=False
+)
+
+# Monkey-patch the module-level objects so all imports see the test engine
+db_mod.engine = _test_engine
+db_mod.async_session = _test_session_factory
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def setup_db():
     """Create tables before each test, drop after."""
-    async with engine.begin() as conn:
+    async with _test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
-    async with engine.begin() as conn:
+    async with _test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def client():
+async def client(setup_db):
     """Async test client."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

@@ -23,7 +23,10 @@ class Action(Base):
     parent_action_hash: Mapped[str] = mapped_column(String(255), nullable=True)
     action_hash: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     agent_signature: Mapped[str] = mapped_column(Text, nullable=False)
+    hash_input_json: Mapped[str] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="allowed")
+    args_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    envelope_timestamp: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

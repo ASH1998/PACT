@@ -48,7 +48,7 @@ async def run_scenario(
         raise HTTPException(status_code=404, detail=f"Scenario '{scenario_name}' not found")
 
     # Build runtime with fresh services
-    from app.crypto import generate_keypair
+    from app.crypto.issuer import ISSUER_PRIVATE_KEY, ISSUER_PUBLIC_KEY
     from app.services.passport import PassportService
     from app.services.intent import IntentService
     from app.services.capability import CapabilityService
@@ -59,7 +59,8 @@ async def run_scenario(
     from app.services.gateway import GatewayService
     from app.services.runtime import RuntimeService
 
-    issuer_private, issuer_public = generate_keypair()
+    issuer_private = ISSUER_PRIVATE_KEY
+    issuer_public = ISSUER_PUBLIC_KEY
 
     passport_svc = PassportService(issuer_private, issuer_public)
     intent_svc = IntentService()

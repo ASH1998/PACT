@@ -47,8 +47,18 @@ class CapabilityService:
         token_hash = hash_payload(token_data)
         token_data["token_hash"] = token_hash
 
-        # Sign
-        payload = canonical_json(token_data)
+        # Sign — only immutable fields so signature stays valid after consume_use()
+        signing_payload = {
+            "token_type": "PACT-CAP",
+            "token_hash": token_hash,
+            "agent_id": agent_id,
+            "intent_hash": intent_hash,
+            "capability": capability,
+            "resource": resource,
+            "max_uses": max_uses,
+            "expires_at": expires_at.isoformat(),
+        }
+        payload = canonical_json(signing_payload)
         signature = sign(self.issuer_private_key, payload)
         token_data["signature"] = signature
 
@@ -77,6 +87,7 @@ class CapabilityService:
         agent_id: str,
         intent_hash: str,
         capability: str,
+        resource: str | None = None,
     ) -> tuple[bool, str]:
         """Validate a capability token. Returns (valid, reason)."""
         result = await db.execute(
@@ -99,6 +110,10 @@ class CapabilityService:
         if token.capability != capability:
             return False, f"Token grants {token.capability}, not {capability}"
 
+        # Resource binding check
+        if resource is not None and token.resource != resource:
+            return False, f"Token bound to resource {token.resource}, not {resource}"
+
         expires_at = token.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
@@ -107,6 +122,26 @@ class CapabilityService:
 
         if token.uses_remaining <= 0:
             return False, "Token use count exhausted"
+
+        # Verify token signature
+        # Normalize expires_at to match the original signed format (always UTC with +00:00)
+        exp = token.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        # Only immutable fields are covered by the signature
+        token_payload = {
+            "token_type": "PACT-CAP",
+            "token_hash": token.token_hash,
+            "agent_id": token.agent_id,
+            "intent_hash": token.intent_hash,
+            "capability": token.capability,
+            "resource": token.resource,
+            "max_uses": token.max_uses,
+            "expires_at": exp.isoformat(),
+        }
+        payload_bytes = canonical_json(token_payload)
+        if not verify(self.issuer_public_key, payload_bytes, token.signature):
+            return False, "Token signature invalid"
 
         return True, "Valid"
 

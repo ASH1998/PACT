@@ -28,9 +28,14 @@ class LedgerService:
         parent_action_hash: str | None,
         agent_signature: str,
         status: str = "allowed",
+        args_json: str = "{}",
+        envelope_timestamp: str | None = None,
     ) -> str:
         """Append an action to the ledger and return its hash."""
         # Build hash input
+        # Use envelope_timestamp if provided, otherwise generate server-side
+        ts = envelope_timestamp or datetime.now(timezone.utc).isoformat()
+
         hash_input = {
             "run_id": run_id,
             "step_id": step_id,
@@ -41,7 +46,7 @@ class LedgerService:
             "capability_token_hash": capability_token_hash,
             "provenance_json": json.dumps(provenance, sort_keys=True),
             "parent_action_hash": parent_action_hash or "",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": ts,
         }
         action_hash = hash_payload(hash_input)
 
@@ -58,7 +63,10 @@ class LedgerService:
             parent_action_hash=parent_action_hash,
             action_hash=action_hash,
             agent_signature=agent_signature,
+            hash_input_json=json.dumps(hash_input, sort_keys=True),
             status=status,
+            args_json=args_json,
+            envelope_timestamp=ts,
         )
         db.add(action)
         await db.commit()
@@ -84,11 +92,15 @@ class LedgerService:
                 "intent_hash": a.intent_hash,
                 "capability_token_hash": a.capability_token_hash,
                 "provenance": json.loads(a.provenance_json),
+                "provenance_json": a.provenance_json,
                 "parent_action_hash": a.parent_action_hash,
                 "action_hash": a.action_hash,
                 "agent_signature": a.agent_signature,
                 "status": a.status,
                 "created_at": a.created_at.isoformat() if a.created_at else None,
+                "hash_input_json": a.hash_input_json,
+                "args_json": a.args_json,
+                "envelope_timestamp": a.envelope_timestamp,
             }
             for a in actions
         ]
@@ -116,8 +128,9 @@ class LedgerService:
                         f"(expected {expected_parent[:20]}..., got {str(action['parent_action_hash'])[:20]}...)"
                     )
 
-            # Re-verify hash
-            hash_input = {
+            # Reconstruct hash input from independently stored columns
+            # (do NOT trust hash_input_json — it could be tampered alongside action fields)
+            reconstructed_input = {
                 "run_id": action["run_id"],
                 "step_id": action["step_id"],
                 "agent_id": action["agent_id"],
@@ -125,11 +138,20 @@ class LedgerService:
                 "args_digest": action["args_digest"],
                 "intent_hash": action["intent_hash"],
                 "capability_token_hash": action["capability_token_hash"],
-                "provenance_json": json.dumps(action["provenance"], sort_keys=True),
+                "provenance_json": json.dumps(
+                    json.loads(action["provenance_json"]) if isinstance(action["provenance_json"], str)
+                    else action["provenance_json"],
+                    sort_keys=True,
+                ),
                 "parent_action_hash": action["parent_action_hash"] or "",
-                "timestamp": action["created_at"] or "",
+                "timestamp": action["envelope_timestamp"] or "",
             }
-            expected_hash = hash_payload(hash_input)
-            # Note: hash may differ due to timestamp precision; in production use stored canonical form
+            expected_hash = hash_payload(reconstructed_input)
+
+            if action["action_hash"] != expected_hash:
+                issues.append(
+                    f"Step {action['step_id']}: hash mismatch "
+                    f"(expected {expected_hash[:20]}..., got {action['action_hash'][:20]}...)"
+                )
 
         return len(issues) == 0, issues

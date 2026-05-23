@@ -16,6 +16,7 @@ _TOOLS: dict[str, callable] = {
     "file.read_secret": file_read_secret,
     "shell.execute_mock": shell_execute_mock,
     "respond_to_user": lambda message="", **kw: {"type": "response", "message": message},
+    "summarize": lambda text="", **kw: {"type": "summary", "text": f"Summary of: {text[:100]}"},
 }
 
 

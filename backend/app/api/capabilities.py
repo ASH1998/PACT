@@ -6,12 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import CapabilityIssueRequest, CapabilityValidateRequest, CapabilityResponse
 from app.services.capability import CapabilityService
-from app.crypto import generate_keypair
+from app.crypto.issuer import ISSUER_PRIVATE_KEY, ISSUER_PUBLIC_KEY
 
 router = APIRouter()
 
 # Module-level singleton issuer keypair — reused across all requests
-_ISSUER_PRIVATE, _ISSUER_PUBLIC = generate_keypair()
+_ISSUER_PRIVATE = ISSUER_PRIVATE_KEY
+_ISSUER_PUBLIC = ISSUER_PUBLIC_KEY
 
 
 def _get_capability_service() -> CapabilityService:
@@ -61,5 +62,6 @@ async def validate_token(
         agent_id=req.agent_id,
         intent_hash=req.intent_hash,
         capability=req.capability,
+        resource=req.resource if req.resource else None,
     )
     return {"valid": valid, "reason": reason}

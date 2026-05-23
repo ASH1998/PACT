@@ -90,7 +90,7 @@ async def test_valid_envelope_executes(gateway, services, agent_keys, setup_db):
             agent_id="agent_gw_1",
             intent_hash=intent_hash,
             capability="email.read",
-            resource="inbox",
+            resource="msg_1",
         )
 
         # Create envelope

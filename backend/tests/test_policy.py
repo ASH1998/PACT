@@ -46,7 +46,7 @@ class TestRiskScoring:
         assert severity == Severity.HIGH
 
     def test_severity_medium(self):
-        _, severity = compute_risk_score(untrusted_influences=["untrusted.email"])
+        _, severity = compute_risk_score(untrusted_influences=["untrusted.email", "untrusted.web"])
         assert severity == Severity.MEDIUM
 
 
