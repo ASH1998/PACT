@@ -119,10 +119,17 @@ for scenario in "${SCENARIOS[@]}"; do
     RESPONSE=$(curl -sf -X POST "$BASE_URL/scenarios/run/$scenario" 2>/dev/null || echo '{"error":"request failed"}')
 
     # Extract fields
-    ALLOWED=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('allowed_count','?'))" 2>/dev/null || echo "?")
-    BLOCKED=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('blocked_count','?'))" 2>/dev/null || echo "?")
+    ALLOWED=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('allowed_actions','?'))" 2>/dev/null || echo "?")
+    BLOCKED=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('blocked_actions','?'))" 2>/dev/null || echo "?")
     MAX_SCORE=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('max_risk_score','?'))" 2>/dev/null || echo "?")
-    MAX_SEV=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('max_severity','?'))" 2>/dev/null || echo "?")
+    # Derive severity from max_risk_score (0-24=low, 25-59=medium, 60-89=high, 90-100=critical)
+    risk=$MAX_SCORE
+    if [ "$risk" -ge 90 ] 2>/dev/null; then severity="critical"
+    elif [ "$risk" -ge 60 ] 2>/dev/null; then severity="high"
+    elif [ "$risk" -ge 25 ] 2>/dev/null; then severity="medium"
+    else severity="low"
+    fi
+    MAX_SEV="$severity"
     RUN_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('run_id','?'))" 2>/dev/null || echo "?")
 
     if [ "$BLOCKED" != "0" ] && [ "$BLOCKED" != "?" ]; then
@@ -178,12 +185,12 @@ if top_tools:
     for t in top_tools:
         print(f\"    - {t['tool']}: {t['count']} attempts\")
 
-top_labels = d.get('top_provenance_labels', [])
+top_labels = d.get('top_provenance_sources', [])
 if top_labels:
     print()
-    print('  Top Provenance Labels:')
+    print('  Top Provenance Sources:')
     for l in top_labels:
-        print(f\"    - {l['label']}: {l['count']} occurrences\")
+        print(f\"    - {l['source']}: {l['count']} occurrences\")
 " 2>/dev/null || echo "  (Could not parse dashboard data)"
 
 echo ""
@@ -205,7 +212,7 @@ else:
 
 if [ -n "$FIRST_RUN" ]; then
     VERIFY=$(curl -sf "$BASE_URL/runs/$FIRST_RUN/ledger/verify" 2>/dev/null || echo '{}')
-    CHAIN_VALID=$(echo "$VERIFY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('chain_valid','unknown'))" 2>/dev/null || echo "unknown")
+    CHAIN_VALID=$(echo "$VERIFY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('valid','unknown'))" 2>/dev/null || echo "unknown")
     if [ "$CHAIN_VALID" = "True" ] || [ "$CHAIN_VALID" = "true" ]; then
         echo -e "  ${GREEN}✓${NC} Ledger chain is valid for run $FIRST_RUN"
     else

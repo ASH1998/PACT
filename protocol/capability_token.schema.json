@@ -58,7 +58,7 @@
     },
     "signature": {
       "type": "string",
-      "description": "Ed25519 signature of the token fields by the issuer (base64-encoded)."
+      "description": "Ed25519 signature of the immutable token fields by the issuer (base64-encoded). Covers: token_type, token_hash, agent_id, intent_hash, capability, resource, max_uses, expires_at. Does NOT cover uses_remaining (which is mutable)."
     }
   }
 }
