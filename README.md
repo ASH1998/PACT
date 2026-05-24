@@ -101,7 +101,7 @@ PACT/
 │   │   │   ├── policy.py            # Policy rules + risk scoring
 │   │   │   ├── ledger.py            # Hash-chained action ledger
 │   │   │   ├── gateway.py           # Tool gateway (core trust boundary)
-│   │   │   ├── scenarios.py         # 6 demo scenario definitions
+│   │   │   ├── scenarios.py         # 7 demo scenario definitions
 │   │   │   └── runtime.py           # Scenario execution engine
 │   │   ├── tools/                   # Mock tools + seed data
 │   │   └── api/                     # FastAPI routers
@@ -204,7 +204,7 @@ pytest -v
 
 ## Demo
 
-Run the automated demo script to execute all 6 scenarios and see the results:
+Run the automated demo script to execute all 7 scenarios and see the results:
 
 ```bash
 ./scripts/demo.sh
@@ -214,7 +214,7 @@ The script will:
 1. Check that Python and Node.js are installed
 2. Install backend dependencies
 3. Start the backend server
-4. Run all 6 demo scenarios (1 safe, 5 attacks)
+4. Run all 7 demo scenarios (1 safe, 5 attacks, 1 approval)
 5. Print a summary table of allowed/blocked results
 6. Fetch and display the dashboard overview
 7. Verify ledger integrity
@@ -222,8 +222,7 @@ The script will:
 
 ## Demo Scenarios
 
-PACT includes 6 deterministic demo scenarios:
-
+PACT includes 7 deterministic demo scenarios:
 | Scenario | Description | Expected |
 |---|---|---|
 | `normal_email_summary` | User asks to summarize an invoice email | ALLOW |
@@ -232,6 +231,7 @@ PACT includes 6 deterministic demo scenarios:
 | `expired_capability_token` | Legitimate agent uses an expired token | BLOCK |
 | `secret_exfiltration` | Agent reads `.env` secrets (allowed), then attempts to send content externally — blocked by R8 (secret + external_write) | BLOCK |
 | `malicious_webpage` | Agent reads a webpage with hidden injection, then attempts external send | BLOCK |
+| `shell_execute_approval` | Agent attempts shell execution — triggers R9 (REQUIRE_APPROVAL). Pending human review (approval UI is stretch/not yet built). | REQUIRE_APPROVAL |
 
 ### Run a Scenario
 
@@ -336,15 +336,23 @@ Score is capped at 100. Severity: low (0-24), medium (25-59), high (60-89), crit
 
 | Label | Meaning |
 |---|---|
-| `trusted.system` | System policy or trusted configuration |
 | `trusted.user` | Direct user instruction |
 | `untrusted.email` | Email body or attachment content |
 | `untrusted.web` | Webpage content |
-| `untrusted.tool_metadata` | External tool metadata *(planned)* |
 | `agent.generated` | Agent-generated intermediate output |
 | `internal.data` | Internal API or non-secret file data |
 | `secret` | Credentials, API keys, tokens, private files |
 | `external_write` | Sends data outside the local system |
+
+## Future Work
+
+The following stretch features are planned but not yet implemented:
+
+- **Human Approval Flow** — UI and API for approving `REQUIRE_APPROVAL` actions (R9 path exists, UI pending)
+- **Exportable Audit Report** — Generate PDF/CSV compliance reports from the ledger
+- **Policy-as-Code Editor** — Edit policy rules through the dashboard UI
+- **MCP Adapter** — Model Context Protocol integration for tool-agnostic gateway
+- **Agent Trust Score** — Weighted trust scoring based on historical behavior
 
 ## License
 
