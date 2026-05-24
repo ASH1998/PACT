@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import Decision, ToolCallResponse
+from app.schemas import Decision, Severity, ToolCallResponse
 from app.services.passport import PassportService
 from app.services.intent import IntentService
 from app.services.capability import CapabilityService
@@ -51,9 +51,14 @@ class GatewayService:
         agent_id = envelope.get("agent_id")
         tool = envelope.get("tool")
         step_id = envelope.get("step_id", 0)
-        provenance = envelope.get("provenance", {})
         parent_action_hash = envelope.get("parent_action_hash")
         agent_signature = envelope.get("agent_signature", "")
+
+        # Build server-side provenance (trust boundary — never trust agent-declared labels)
+        self.provenance_service.ensure_run(run_id)
+        args = envelope.get("args", {})
+        self.provenance_service.record_step(run_id, tool, step_id=step_id, resource=resource_from_args(tool, args))
+        provenance = self.provenance_service.build_provenance(run_id, tool)
 
         # Step 1: Verify agent passport
         passport = await self.passport_service.get_passport(db, agent_id)
@@ -108,6 +113,30 @@ class GatewayService:
         allowed_actions = intent.get("allowed_actions", []) if intent else []
         forbidden_actions = intent.get("forbidden_actions", []) if intent else []
 
+        # Step 3b: Verify intent ownership — agent can only use intents it created
+        if intent and intent.get("created_by") not in (agent_id, "system"):
+            # Agent is claiming an intent it doesn't own — block
+            from app.models.policy_decision import PolicyDecision as PolicyDecisionModel
+            action_hash = await self.ledger_service.append_action(
+                db=db, run_id=run_id, step_id=step_id, agent_id=agent_id, tool=tool,
+                args_digest=envelope.get("args_digest", ""), intent_hash=envelope.get("intent_hash", ""),
+                capability_token_hash=envelope.get("capability_token_hash", ""),
+                provenance=provenance, parent_action_hash=parent_action_hash,
+                agent_signature=agent_signature, status="blocked",
+            )
+            pd_record = PolicyDecisionModel(
+                run_id=run_id, action_hash=action_hash, decision="BLOCK",
+                risk_score=100, severity="critical",
+                reasons_json='["Intent ownership mismatch: agent did not create this intent"]',
+            )
+            db.add(pd_record)
+            await db.commit()
+            return ToolCallResponse(
+                decision=Decision.BLOCK, risk_score=100, severity=Severity.CRITICAL,
+                reasons=["Intent ownership mismatch: agent did not create this intent"],
+                action_hash=action_hash, run_id=run_id,
+            )
+
         # Step 4: Validate capability token
         cap_valid = True
         cap_reason = "Valid"
@@ -115,6 +144,9 @@ class GatewayService:
         if intent:
             # Extract resource from args for validation
             args = envelope.get("args", {})
+            # Resource binding: the token is bound to a resource extracted from the envelope args.
+            # In the demo, the resource is self-declared by the caller at issue time.
+            # A production system would verify this against a user-authorized resource scope.
             resource = resource_from_args(tool, args)
             cap_valid, cap_reason = await self.capability_service.validate_token(
                 db, token_hash, agent_id, envelope.get("intent_hash", ""), tool, resource=resource
@@ -168,8 +200,18 @@ class GatewayService:
             if tool_fn:
                 args = envelope.get("args", {})
                 tool_result = tool_fn(**args)
+        # Persist tool result back to the action record
+        if tool_result is not None:
+            from app.models.action import Action as ActionModel
+            from sqlalchemy import update as sa_update
+            await db.execute(
+                sa_update(ActionModel)
+                .where(ActionModel.action_hash == action_hash)
+                .values(result_json=json.dumps(tool_result))
+            )
 
-            # Consume a capability use
+        # Step 8.5: Always consume a use (prevents infinite probing)
+        if token_hash:
             await self.capability_service.consume_use(db, token_hash)
 
         # Step 9: Record policy decision

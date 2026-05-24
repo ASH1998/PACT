@@ -17,7 +17,7 @@ async def create_intent(
 ):
     """Create an intent contract from a user goal."""
     svc = IntentService()
-    result = await svc.create_intent(db, req.user_goal)
+    result = await svc.create_intent(db, req.user_goal, created_by=req.created_by)
     return IntentResponse(**result)
 
 

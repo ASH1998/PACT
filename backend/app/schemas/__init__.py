@@ -17,6 +17,18 @@ class RiskTier(str, Enum):
     CRITICAL = "critical"
 
 
+class RiskBudget(str, Enum):
+    """Risk budget for intents — restricted to low/medium/high (no critical).
+
+    Aligns with intent_contract.schema.json which only allows [low, medium, high].
+    RiskTier (which includes critical) is used for agent passports.
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class Decision(str, Enum):
     ALLOW = "ALLOW"
     BLOCK = "BLOCK"
@@ -90,13 +102,14 @@ class IntentContract(BaseModel):
     user_goal: str
     allowed_actions: list[str]
     forbidden_actions: list[str]
-    risk_budget: RiskTier
+    risk_budget: RiskBudget
     approval_required_for: list[str]
     intent_hash: str
 
 
 class IntentCreateRequest(BaseModel):
     user_goal: str
+    created_by: str = "api"
 
 
 class IntentResponse(BaseModel):
@@ -104,10 +117,11 @@ class IntentResponse(BaseModel):
     user_goal: str
     allowed_actions: list[str]
     forbidden_actions: list[str]
-    risk_budget: RiskTier
+    risk_budget: RiskBudget
     approval_required_for: list[str]
     intent_hash: str
     created_at: datetime
+    created_by: str = "system"
 
 
 # --- Capability Token ---
@@ -158,6 +172,7 @@ class CapabilityResponse(BaseModel):
 
 class ProvenanceContext(BaseModel):
     influenced_by: list[str] = Field(default_factory=list)
+    influenced_by_sources: list[dict] = Field(default_factory=list)
     uses_data: list[str] = Field(default_factory=list)
     side_effect: Optional[str] = None
 
@@ -265,6 +280,7 @@ class ActionResponse(BaseModel):
     status: ActionStatus
     created_at: datetime
     policy_decision: Optional[PolicyDecision] = None
+    result: Optional[dict] = None
 
 
 class ReplayStep(BaseModel):
@@ -280,6 +296,7 @@ class ReplayStep(BaseModel):
     parent_action_hash: Optional[str] = None
     signature_valid: bool = True
     chain_valid: bool = True
+    result: Optional[dict] = None
 
 
 class ReplayResponse(BaseModel):

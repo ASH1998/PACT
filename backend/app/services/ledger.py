@@ -42,6 +42,7 @@ class LedgerService:
             "agent_id": agent_id,
             "tool": tool,
             "args_digest": args_digest,
+            "args_json": args_json or "",
             "intent_hash": intent_hash,
             "capability_token_hash": capability_token_hash,
             "provenance_json": json.dumps(provenance, sort_keys=True),
@@ -136,6 +137,7 @@ class LedgerService:
                 "agent_id": action["agent_id"],
                 "tool": action["tool"],
                 "args_digest": action["args_digest"],
+                "args_json": action.get("args_json") or "",
                 "intent_hash": action["intent_hash"],
                 "capability_token_hash": action["capability_token_hash"],
                 "provenance_json": json.dumps(

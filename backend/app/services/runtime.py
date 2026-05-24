@@ -80,7 +80,7 @@ class RuntimeService:
             agent_private_key = result["agent_private_key"]
 
         # Create intent
-        intent = await self.intent_service.create_intent(db, user_goal)
+        intent = await self.intent_service.create_intent(db, user_goal, created_by=agent_id)
         intent_hash = intent["intent_hash"]
 
         # Execute each step
@@ -95,7 +95,7 @@ class RuntimeService:
             args = step.get("args", {})
 
             # Record provenance
-            self.provenance_service.record_step(run_id, tool)
+            self.provenance_service.record_step(run_id, tool, step_id=i, resource=resource_from_args(tool, args))
             provenance = self.provenance_service.build_provenance(run_id, tool)
 
             # Get the agent's private key (for demo, we re-read from the passport we just created)

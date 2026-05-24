@@ -146,19 +146,26 @@ class CapabilityService:
         return True, "Valid"
 
     async def consume_use(self, db: AsyncSession, token_hash: str) -> bool:
-        """Decrement uses_remaining. Returns False if already exhausted."""
+        """Decrement uses_remaining atomically. Returns True if a use was consumed."""
         result = await db.execute(
-            select(CapabilityTokenModel).where(CapabilityTokenModel.token_hash == token_hash)
+            update(CapabilityTokenModel)
+            .where(CapabilityTokenModel.token_hash == token_hash)
+            .where(CapabilityTokenModel.uses_remaining > 0)
+            .where(CapabilityTokenModel.status == "active")
+            .values(uses_remaining=CapabilityTokenModel.uses_remaining - 1)
         )
-        token = result.scalar_one_or_none()
-
-        if not token or token.uses_remaining <= 0:
+        await db.commit()
+        if result.rowcount == 0:
             return False
 
-        token.uses_remaining -= 1
-        if token.uses_remaining <= 0:
+        # Check if exhausted after the atomic decrement
+        token_result = await db.execute(
+            select(CapabilityTokenModel).where(CapabilityTokenModel.token_hash == token_hash)
+        )
+        token = token_result.scalar_one_or_none()
+        if token and token.uses_remaining <= 0:
             token.status = "exhausted"
-        await db.commit()
+            await db.commit()
         return True
 
     async def get_token(self, db: AsyncSession, token_hash: str) -> dict | None:
