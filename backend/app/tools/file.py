@@ -5,8 +5,6 @@ def file_read(path: str = "documents/report.txt", **kwargs) -> dict:
     """Read a mock non-secret file."""
     from app.tools.seed_data import SEED_DATA
 
-    if "secret" in path.lower() or ".env" in path.lower():
-        return SEED_DATA["mock_env_file"]
     return SEED_DATA.get("safe_internal_file", {
         "type": "file_content",
         "path": path,

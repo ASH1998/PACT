@@ -2,6 +2,7 @@ from __future__ import annotations
 """Intent Service — classify user goals and create deterministic intent contracts."""
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -36,6 +37,13 @@ INTENT_RULES = [
         "risk_budget": "low",
     },
     {
+        "keywords": ["access", "config"],
+        "allowed": ["file.read", "file.read_secret", "email.send", "summarize", "respond_to_user"],
+        "forbidden": ["shell.execute_mock"],
+        "approval_sensitive": ["external_write", "delete", "payment", "secret_access"],
+        "risk_budget": "medium",
+    },
+    {
         "keywords": ["read", "file"],
         "allowed": ["file.read", "summarize", "respond_to_user"],
         "forbidden": ["email.send", "file.read_secret", "shell.execute_mock"],
@@ -50,7 +58,7 @@ def classify_intent(user_goal: str) -> dict:
     goal_lower = user_goal.lower()
 
     for rule in INTENT_RULES:
-        if all(kw in goal_lower for kw in rule["keywords"]):
+        if all(re.search(r'\b' + re.escape(kw) + r's?\b', goal_lower) for kw in rule["keywords"]):
             return {
                 "allowed_actions": rule["allowed"],
                 "forbidden_actions": rule["forbidden"],
@@ -77,18 +85,8 @@ class IntentService:
     async def create_intent(self, db: AsyncSession, user_goal: str) -> dict:
         """Create an intent contract from a user goal."""
         classification = classify_intent(user_goal)
-        intent_id = f"intent_{uuid.uuid4().hex[:12]}"
 
-        intent_data = {
-            "intent_id": intent_id,
-            "user_goal": user_goal,
-            "allowed_actions": classification["allowed_actions"],
-            "forbidden_actions": classification["forbidden_actions"],
-            "risk_budget": classification["risk_budget"],
-            "approval_required_for": classification["approval_required_for"],
-        }
-
-        # Generate hash from canonical form (exclude intent_id and intent_hash)
+        # Generate hash from canonical form
         hash_input = {
             "user_goal": user_goal,
             "allowed_actions": sorted(classification["allowed_actions"]),
@@ -96,7 +94,24 @@ class IntentService:
             "risk_budget": classification["risk_budget"],
         }
         intent_hash = hash_payload(hash_input)
-        intent_data["intent_hash"] = intent_hash
+
+        # Upsert: return existing if hash already exists
+        result = await db.execute(select(Intent).where(Intent.intent_hash == intent_hash))
+        existing = result.scalars().first()
+        if existing:
+            return {
+                "intent_id": existing.intent_id,
+                "user_goal": existing.user_goal,
+                "allowed_actions": json.loads(existing.allowed_actions_json),
+                "forbidden_actions": json.loads(existing.forbidden_actions_json),
+                "approval_required_for": json.loads(existing.approval_required_for_json),
+                "risk_budget": existing.risk_budget,
+                "intent_hash": existing.intent_hash,
+                "created_at": existing.created_at,
+            }
+
+        intent_id = f"intent_{uuid.uuid4().hex[:12]}"
+        now = datetime.now(timezone.utc)
 
         # Store in DB
         intent = Intent(
@@ -111,7 +126,16 @@ class IntentService:
         db.add(intent)
         await db.commit()
 
-        return intent_data
+        return {
+            "intent_id": intent_id,
+            "user_goal": user_goal,
+            "allowed_actions": classification["allowed_actions"],
+            "forbidden_actions": classification["forbidden_actions"],
+            "risk_budget": classification["risk_budget"],
+            "approval_required_for": classification["approval_required_for"],
+            "intent_hash": intent_hash,
+            "created_at": now,
+        }
 
     async def get_intent(self, db: AsyncSession, intent_id: str) -> dict | None:
         """Fetch an intent contract by ID."""
@@ -128,12 +152,13 @@ class IntentService:
             "approval_required_for": json.loads(intent.approval_required_for_json),
             "risk_budget": intent.risk_budget,
             "intent_hash": intent.intent_hash,
+            "created_at": intent.created_at,
         }
 
     async def get_intent_by_hash(self, db: AsyncSession, intent_hash: str) -> dict | None:
         """Fetch an intent contract by hash."""
         result = await db.execute(select(Intent).where(Intent.intent_hash == intent_hash))
-        intent = result.scalar_one_or_none()
+        intent = result.scalars().first()  # Use .first() not scalar_one_or_none() for safety
         if not intent:
             return None
 
@@ -145,4 +170,5 @@ class IntentService:
             "approval_required_for": json.loads(intent.approval_required_for_json),
             "risk_budget": intent.risk_budget,
             "intent_hash": intent.intent_hash,
+            "created_at": intent.created_at,
         }
