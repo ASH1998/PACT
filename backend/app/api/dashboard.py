@@ -111,23 +111,42 @@ async def get_agent_trust_scores(db: AsyncSession = Depends(get_db)):
 
     scores = []
     for agent in agents:
-        # Count blocked actions for this agent
+        # Count blocked actions for this agent, weighted by severity
         blocked_result = await db.execute(
-            select(func.count(Action.id))
+            select(PolicyDecisionModel)
+            .join(Action, Action.action_hash == PolicyDecisionModel.action_hash)
             .where(Action.agent_id == agent.agent_id)
             .where(Action.status == "blocked")
         )
-        blocked = blocked_result.scalar() or 0
+        blocked_decisions = blocked_result.scalars().all()
 
-        # Count total runs
+        # Count total blocked actions for display
+        blocked = len(blocked_decisions)
+
+        # Count total runs and successful (all-allowed) runs
         runs_result = await db.execute(
-            select(func.count(Run.id))
-            .where(Run.agent_id == agent.agent_id)
+            select(Run).where(Run.agent_id == agent.agent_id)
         )
-        total_runs = runs_result.scalar() or 0
+        all_runs = runs_result.scalars().all()
+        total_runs = len(all_runs)
 
-        # Simple trust score: 100 - (blocked * 10), min 0
-        trust_score = max(0, 100 - (blocked * 10))
+        # Count clean runs (no blocked actions)
+        clean_runs = 0
+        for run in all_runs:
+            run_blocked = await db.execute(
+                select(func.count(Action.id))
+                .where(Action.run_id == run.run_id)
+                .where(Action.status == "blocked")
+            )
+            if (run_blocked.scalar() or 0) == 0:
+                clean_runs += 1
+
+        # Weighted deduction: critical=-20, high=-10, medium=-5, low=-2
+        SEVERITY_WEIGHT = {"critical": 20, "high": 10, "medium": 5, "low": 2}
+        penalty = sum(SEVERITY_WEIGHT.get(pd.severity, 5) for pd in blocked_decisions)
+        bonus = clean_runs * 5  # +5 per clean run
+
+        trust_score = max(0, min(100, 100 - penalty + bonus))
 
         scores.append(AgentTrustScore(
             agent_id=agent.agent_id,

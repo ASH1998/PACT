@@ -31,6 +31,9 @@ router = APIRouter()
 @router.get("", response_model=list[RunResponse])
 async def list_runs(db: AsyncSession = Depends(get_db)):
     """List all agent runs."""
+    from app.services.ledger import LedgerService
+    ledger_svc = LedgerService()
+    
     result = await db.execute(select(Run).order_by(Run.started_at.desc()))
     runs = result.scalars().all()
 
@@ -52,6 +55,9 @@ async def list_runs(db: AsyncSession = Depends(get_db)):
             if pd:
                 max_risk = max(max_risk, pd.risk_score)
 
+        # Verify ledger chain
+        ledger_valid, _ = await ledger_svc.verify_chain(db, run.run_id)
+
         responses.append(RunResponse(
             run_id=run.run_id,
             agent_id=run.agent_id,
@@ -64,6 +70,7 @@ async def list_runs(db: AsyncSession = Depends(get_db)):
             allowed_actions=allowed,
             blocked_actions=blocked,
             max_risk_score=max_risk,
+            ledger_valid=ledger_valid,
         ))
 
     return responses
