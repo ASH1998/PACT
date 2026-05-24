@@ -117,7 +117,7 @@ The Intent Contract is derived from the user's natural-language goal through a d
   "allowed_actions": ["email.read", "summarize", "respond_to_user"],
   "forbidden_actions": ["email.send", "email.delete", "file.read_secret", "shell.execute_mock"],
   "risk_budget": "low",
-  "approval_required_for": ["external_write", "delete", "payment", "secret_access", "shell"],
+  "approval_required_for": ["external_write", "delete", "payment", "secret_access"],
   "intent_hash": "sha256:a1b2c3d4..."
 }
 ```
@@ -129,6 +129,8 @@ The Intent Contract is derived from the user's natural-language goal through a d
 | `summarize` + `email` | `email.read`, `summarize`, `respond_to_user` | Read-only email workflow |
 | `send email` | `email.read`, `email.send`, `respond_to_user` | `email.send` is approval-sensitive |
 | `research` or `web` | `web.read`, `summarize`, `respond_to_user` | Web research workflow |
+| `access` + `config` | `file.read_secret`, `email.send` | Access config files (e.g., .env); allows reading secrets and sending email |
+| `read` + `file` | `file.read`, `respond_to_user` | Read-only file workflow |
 | Unknown | `respond_to_user` only | No tool side effects |
 
 **Security Properties:**
@@ -183,6 +185,7 @@ Capability tokens are the authorization primitive. They are issued per-action, b
 - `agent_id` does not match the acting agent
 - `intent_hash` does not match the current intent
 - `capability` does not match the requested tool
+- `resource` does not match the requested resource (when provided)
 - `uses_remaining` is zero (exhausted)
 - Signature is invalid
 
@@ -527,7 +530,7 @@ Triggers when: The action's `provenance.uses_data` or `provenance.influenced_by`
 }
 ```
 
-Triggers when: The tool being called is `shell.execute_mock`. Shell commands always require human approval, regardless of other context. (Stretch feature — in MVP, this is treated as BLOCK.)
+Triggers when: The tool being called is `shell.execute_mock`. Shell commands always require human approval, regardless of other context. In the MVP, this returns `REQUIRE_APPROVAL` — the actual human approval workflow (approval tokens, UI, timeout handling) is a stretch feature.
 
 ### R10: Valid Action → ALLOW
 
