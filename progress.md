@@ -1,11 +1,11 @@
 # PACT — Progress Tracker
 
-> Last updated: 2026-05-24 (post-review fix round)
+> Last updated: 2026-05-24 (post-gaps.md fix round)
 
 ## Overall Status
 
 **Project:** PACT — Provenance-Aware Capability Tokens for AI Agents
-**Verdict:** Solid MVP with honest protocol enforcement. All 76 tests pass, frontend builds clean.
+**Verdict:** Solid MVP with honest protocol enforcement. All 100 tests pass, frontend builds clean.
 
 ---
 
@@ -168,7 +168,7 @@
 
 ---
 
-## Phase 7: Demo Polish ⚠️ Partial
+## Phase 7: Demo Polish ✅
 
 - [x] `README.md` — setup, quick start, API docs, scenarios, policy rules, provenance labels
 - [x] `docs/PROTOCOL.md` — protocol specification
@@ -177,28 +177,29 @@
 - [x] `.gitignore` — Python, Node, IDE, OS, keys, coverage
 - [ ] `docs/PROTOCOL.md` content verification — may need review against latest code changes
 - [ ] `docs/API.md` content verification — may need `/tools/call` endpoint documentation update
-- [ ] CI pipeline (GitHub Actions)
+- [x] CI pipeline (GitHub Actions)
 - [ ] Fallback screenshots
 
 ---
 
 ## Tests ✅
 
-**76 tests, all passing in < 1 second.**
+**100 tests, all passing in ~1 second.**
 
 | File | Tests | Covers |
 |---|---|---|
-| test_crypto.py | 11 | Keypair, signing, canonical JSON, hashing |
+| test_crypto.py | 13 | Keypair, signing, canonical JSON, hashing, issuer key permissions |
 | test_passport.py | 4 | Create, verify, tamper detection, DB storage |
-| test_intent.py | 5 | All 4 classification rules + default |
-| test_capability.py | 7 | Issue, validate, expired, wrong agent/capability, consume, exhaust |
+| test_intent.py | 9 | Classification rules (6 rules + default), upsert, created_at, word-boundary |
+| test_capability.py | 9 | Issue, validate, expired, wrong agent/capability, consume, exhaust, multi-use, resource binding |
 | test_envelope.py | 4 | Create, verify, tamper detection |
 | test_provenance.py | 4 | Label assignment + propagation |
 | test_policy.py | 16 | Risk scoring (9) + policy evaluation (7) |
 | test_ledger.py | 3 | Hash generation, chain linking, verification |
 | test_gateway.py | 4 | Valid execute, bad signature, expired token, intent mismatch |
 | test_tools.py | 9 | Registry + all 7 tools |
-| test_integration.py | 8 | Full API lifecycle (scenarios, runs, replay, dashboard, ledger) |
+| test_integration.py | 13 | Full API lifecycle (scenarios, runs, replay, dashboard, ledger, provenance counts, tamper detection, R8 regression) |
+| test_resource.py | 11 | Resource extraction (email.send→to, shell→command, etc.) |
 | test_health.py | 1 | Health endpoint |
 
 ---
@@ -249,8 +250,7 @@ All 12 issues from the review have been addressed:
 
 | Item | Priority | Notes |
 |---|---|---|
-| Verify docs match latest code | Low | PROTOCOL.md and API.md may need updates for recent changes |
-| CI pipeline | Low | GitHub Actions for tests + build |
+| Verify docs match latest code | Low | In-progress — PROTOCOL.md and API.md review |
 | Frontend tests | Low | Smoke tests for dashboard, replay |
 | Fallback screenshots | Low | Demo backup |
 | `npm run lint` | Low | Add eslint config if needed |

@@ -217,7 +217,7 @@ Rule 1: untrusted.email cannot directly trigger external_write.
 Rule 2: secret cannot flow into external_write.
 Rule 3: tool action must match intent contract.
 Rule 4: expired capability tokens are invalid.
-Rule 5: delete, payment, shell, and external send require human approval.
+Rule 5: delete, payment, shell.execute_mock, and external send require human approval.
 Rule 6: agent passport signature must be valid.
 Rule 7: action hash chain must be intact.
 ```

@@ -42,3 +42,6 @@ htmlcov/
 .coverage
 .coverage.*
 coverage.xml
+
+# Windows Zone.Identifier artifacts
+*:Zone.Identifier

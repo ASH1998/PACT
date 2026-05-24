@@ -107,19 +107,27 @@ PACT/
 │   │   └── api/                     # FastAPI routers
 │   └── tests/                       # Pytest test suite
 │
-└── frontend/                        # React + Vite + TypeScript
-    ├── package.json
-    ├── vite.config.ts
-    └── src/
-        ├── App.tsx
-        └── main.tsx
+├── docs/                            # Protocol spec, API reference, architecture
+│   ├── PROTOCOL.md
+│   ├── API.md
+│   └── architecture-diagram.html
+├── scripts/                         # Demo and utility scripts
+│   └── demo.sh
+├── frontend/                        # React + Vite + TypeScript
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── App.tsx
+│       └── main.tsx
+└── .github/workflows/               # CI pipeline
+    └── ci.yml
 ```
 
 ## Tech Stack
 
 ### Backend
 
-- Python 3.11+
+- Python 3.10+
 - FastAPI
 - SQLAlchemy (async) + SQLite (aiosqlite)
 - PyNaCl (Ed25519 signatures)
@@ -139,7 +147,7 @@ PACT/
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.10+
 - Node.js 18+
 - npm or pnpm
 
@@ -222,7 +230,7 @@ PACT includes 6 deterministic demo scenarios:
 | `malicious_email_injection` | Agent reads a malicious email, then attempts to send data externally | BLOCK |
 | `fake_agent_identity` | Unregistered agent tries to access email | BLOCK |
 | `expired_capability_token` | Legitimate agent uses an expired token | BLOCK |
-| `secret_exfiltration` | Agent reads `.env` secrets, then tries to send externally | BLOCK |
+| `secret_exfiltration` | Agent reads `.env` secrets (allowed), then attempts to send content externally — blocked by R8 (secret + external_write) | BLOCK |
 | `malicious_webpage` | Agent reads a webpage with hidden injection, then attempts external send | BLOCK |
 
 ### Run a Scenario
@@ -332,7 +340,7 @@ Score is capped at 100. Severity: low (0-24), medium (25-59), high (60-89), crit
 | `trusted.user` | Direct user instruction |
 | `untrusted.email` | Email body or attachment content |
 | `untrusted.web` | Webpage content |
-| `untrusted.tool_metadata` | External tool metadata |
+| `untrusted.tool_metadata` | External tool metadata *(planned)* |
 | `agent.generated` | Agent-generated intermediate output |
 | `internal.data` | Internal API or non-secret file data |
 | `secret` | Credentials, API keys, tokens, private files |

