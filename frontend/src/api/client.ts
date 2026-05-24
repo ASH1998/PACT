@@ -59,6 +59,7 @@ export interface PolicyDecisionData {
 
 export interface ProvenanceData {
   influenced_by: string[];
+  influenced_by_sources: { label: string; source_step: number; source_tool: string; source_resource: string }[];
   uses_data: string[];
   side_effect: string | null;
 }
@@ -75,6 +76,7 @@ export interface ActionData {
   status: string;
   created_at: string | null;
   policy_decision: PolicyDecisionData | null;
+  result: Record<string, unknown> | null;
 }
 
 export interface RunDetail {
@@ -86,6 +88,17 @@ export interface RunDetail {
   started_at: string | null;
   completed_at: string | null;
   actions: ActionData[];
+  intent_contract: IntentContractData | null;
+}
+
+export interface IntentContractData {
+  intent_id: string;
+  user_goal: string;
+  allowed_actions: string[];
+  forbidden_actions: string[];
+  risk_budget: string;
+  approval_required_for: string[];
+  intent_hash: string;
 }
 
 export interface ReplayStepData {
@@ -101,6 +114,7 @@ export interface ReplayStepData {
   parent_action_hash: string | null;
   signature_valid: boolean;
   chain_valid: boolean;
+  result: Record<string, unknown> | null;
 }
 
 export interface ReplayData {
@@ -190,4 +204,15 @@ export interface BlockedActionData {
 
 export function getBlockedActions(): Promise<BlockedActionData[]> {
   return request<BlockedActionData[]>('/dashboard/blocked-actions');
+}
+
+export interface TamperResult {
+  run_id: string;
+  tampered_field: string;
+  ledger_valid_after_tamper: boolean;
+  issues: string[];
+}
+
+export function tamperLedger(runId: string): Promise<TamperResult> {
+  return request<TamperResult>(`/runs/${runId}/tamper`, { method: 'POST' });
 }

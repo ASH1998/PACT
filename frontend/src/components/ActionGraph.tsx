@@ -164,6 +164,26 @@ export default function ActionGraph({ run }: Props) {
         });
       }
 
+      // Inter-step causal edges (taint propagation)
+      if (a.provenance.influenced_by_sources) {
+        for (const src of a.provenance.influenced_by_sources) {
+          if (src.source_step >= 0 && src.source_step !== a.step_id) {
+            const sourceActionId = `action-${src.source_step}`;
+            if (n.some((node) => node.id === sourceActionId)) {
+              e.push({
+                id: `e-taint-${src.source_step}-${a.step_id}-${src.label}`,
+                source: sourceActionId,
+                target: `action-${a.step_id}`,
+                label: src.label,
+                labelStyle: { fill: '#ef4444', fontSize: 8 },
+                style: { stroke: '#ef444455', strokeDasharray: '5 5' },
+                markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' },
+              });
+            }
+          }
+        }
+      }
+
       // Policy decision node
       if (a.policy_decision) {
         const pdId = `pd-${a.step_id}`;

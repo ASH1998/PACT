@@ -44,8 +44,8 @@ export default function Runs() {
             </thead>
             <tbody>
               {runs.map((r) => {
-                const severity = r.max_risk_score >= 75 ? 'critical'
-                  : r.max_risk_score >= 50 ? 'high'
+                const severity = r.max_risk_score >= 90 ? 'critical'
+                  : r.max_risk_score >= 60 ? 'high'
                   : r.max_risk_score >= 25 ? 'medium'
                   : 'low';
 

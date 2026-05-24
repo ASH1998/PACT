@@ -289,6 +289,18 @@ function StepDetail({ step }: { step: ReplayStepData }) {
         )}
       </div>
 
+      {/* Tool Result */}
+      <div>
+        <div className="text-xs text-gray-500 mb-1 font-medium">Tool Result</div>
+        {step.result ? (
+          <pre className="text-[10px] text-gray-400 bg-pact-bg rounded p-3 overflow-auto max-h-48 font-mono">
+            {JSON.stringify(step.result, null, 2)}
+          </pre>
+        ) : (
+          <span className="text-xs text-gray-500">No result (blocked or no tool)</span>
+        )}
+      </div>
+
       {/* Envelope JSON (expandable) */}
       <div>
         <button
