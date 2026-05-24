@@ -108,6 +108,8 @@ The Intent Contract is derived from the user's natural-language goal through a d
 | `approval_required_for` | string[] | Action categories requiring human approval |
 | `intent_hash` | string | SHA-256 hash of the canonicalized intent fields |
 
+> **Note:** `approval_required_for` categories beyond `external_write` and `shell` are reserved for future tools. The current demo policy engine does not enforce them independently.
+
 **Example:**
 
 ```json
@@ -131,6 +133,7 @@ The Intent Contract is derived from the user's natural-language goal through a d
 | `research` or `web` | `web.read`, `summarize`, `respond_to_user` | Web research workflow |
 | `access` + `config` | `file.read_secret`, `email.send` | Access config files (e.g., .env); allows reading secrets and sending email |
 | `read` + `file` | `file.read`, `respond_to_user` | Read-only file workflow |
+| `run` + `command` | `shell.execute_mock`, `respond_to_user` | High risk budget; shell triggers R9 approval |
 | Unknown | `respond_to_user` only | No tool side effects |
 
 **Security Properties:**
@@ -191,11 +194,15 @@ Capability tokens are the authorization primitive. They are issued per-action, b
 
 **Signature Coverage:** The `signature` covers only the immutable token fields: `token_type`, `token_hash`, `agent_id`, `intent_hash`, `capability`, `resource`, `max_uses`, and `expires_at`. The mutable field `uses_remaining` is **not** included in the signature — it is decremented on each use without invalidating the signature.
 
+> **Implementation note:** The capability token signature covers all fields except `uses_remaining`, which is mutable (decremented on each use). This ensures consuming a use does not invalidate the signature. The signed payload includes: `token_type`, `token_hash`, `agent_id`, `intent_hash`, `capability`, `resource`, `max_uses`, `expires_at`.
+
 **Security Properties:**
 - Short-lived (5-minute default TTL) limits the window for token theft.
 - Intent-bound — a token issued for email.read cannot be used for email.send.
 - Use-limited — prevents replay attacks with the same token.
 - Signed — tampering with any immutable field invalidates the signature.
+
+> **Implementation note (resource binding):** In the current demo, resource binding is enforced at the capability validation layer — the token is bound to a specific resource and the gateway verifies the envelope's args match. However, the resource value is determined by the caller at token issuance time (in the runtime path, it comes from the server-side scenario step definition; in the direct `/tools/call` path, it is extracted from the agent's envelope args). A production deployment would require an upstream authorization step (e.g., user-approved resource scope) before issuing tokens, to prevent agents from self-declaring their resource bindings.
 
 ---
 
@@ -209,11 +216,9 @@ Provenance labels are coarse-grained data origin tags attached to every action's
 
 | Label | Meaning |
 |---|---|
-| `trusted.system` | System policy or trusted configuration |
 | `trusted.user` | Direct user instruction |
 | `untrusted.email` | Email body or attachment content |
 | `untrusted.web` | Webpage content |
-| `untrusted.tool_metadata` | External tool metadata |
 | `agent.generated` | Agent-generated intermediate output |
 | `internal.data` | Internal API or non-secret file data |
 | `secret` | Credentials, API keys, tokens, private files |
@@ -245,6 +250,8 @@ Provenance labels are coarse-grained data origin tags attached to every action's
   "side_effect": "external_write"
 }
 ```
+
+> **Provenance field semantics:** `influenced_by` contains the full accumulated taint chain across all prior steps in the run. `uses_data` contains the data labels this specific step consumes as direct input. `influenced_by_sources` (implementation extension) adds step-level attribution showing which step introduced each label.
 
 ---
 
@@ -301,6 +308,8 @@ Provenance labels are coarse-grained data origin tags attached to every action's
 - The `agent_signature` field is never included in the signature payload (it is computed over all other fields).
 - `args_digest` is a hash of the canonicalized `args` object, not the raw JSON.
 - The gateway rejects envelopes with missing fields, mismatched hashes, or invalid signatures.
+
+> **Implementation note:** The stored action record includes raw `args_json` in addition to `args_digest`. This enables faithful replay envelope reconstruction. The `args_digest` is the canonical hash used in signature verification; the raw args are stored separately for replay fidelity.
 
 **Security Properties:**
 - **Identity proof** — `agent_id` + `agent_signature` prove which agent made this call.
@@ -521,6 +530,8 @@ Triggers when: The action's `provenance.influenced_by` contains `untrusted.web` 
 
 Triggers when: The action's `provenance.uses_data` or `provenance.influenced_by` contains `secret` **and** `provenance.side_effect` is `external_write`. This blocks secret exfiltration.
 
+> **Implementation note:** R8 checks for `"secret"` in both `influenced_by` and `uses_data` arrays. This is slightly broader than the label table suggests (which puts `secret` only in `uses_data`), but provides defense-in-depth against taint propagation edge cases.
+
 ### R9: Shell Execution → REQUIRE_APPROVAL
 
 ```json
@@ -657,6 +668,8 @@ PACT MVP has deliberate limitations. Understanding these is important for evalua
 9. **Human approval flow** — `REQUIRE_APPROVAL` decisions are logged but the actual human approval workflow is a stretch feature.
 
 10. **Nondeterministic agent behavior** — MVP scenarios are deterministic. PACT does not handle the variability of real LLM agent outputs.
+
+> **Key architecture note:** The current demo uses a single issuer keypair for both passport issuance and capability token signing. A production deployment should use separate keys for each trust domain (passport-issuer and capability-issuer) so that a compromise of one key does not automatically compromise the other. The PACT protocol primitives support this separation — the implementation simply shares keys for demo simplicity.
 
 ---
 

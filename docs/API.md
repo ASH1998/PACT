@@ -583,6 +583,8 @@ curl http://localhost:8000/scenarios
 
 Execute a named demo scenario through the full PACT pipeline. The system creates the agent, intent, capability tokens, and runs all steps through the gateway automatically.
 
+> **Note:** `POST /scenarios/run/{name}` executes the scenario and returns summary stats. To retrieve the full run trace with actions and policy decisions, use `GET /runs/{run_id}` with the `run_id` from the response.
+
 ```bash
 curl -X POST http://localhost:8000/scenarios/run/malicious_email_injection
 ```
