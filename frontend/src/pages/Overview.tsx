@@ -16,6 +16,8 @@ import {
   runScenario,
   ScenarioInfo,
   ScenarioRunResponse,
+  getBlockedActions,
+  BlockedActionData,
 } from '../api/client';
 
 export default function Overview() {
@@ -27,6 +29,7 @@ export default function Overview() {
   const [runningName, setRunningName] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ScenarioRunResponse | null>(null);
   const [runError, setRunError] = useState('');
+  const [blocked, setBlocked] = useState<BlockedActionData[]>([]);
 
   const fetchDashboard = useCallback(() => {
     getDashboardOverview()
@@ -38,6 +41,7 @@ export default function Overview() {
   useEffect(() => {
     fetchDashboard();
     getScenarios().then(setScenarios).catch(() => {});
+    getBlockedActions().then(setBlocked).catch(() => {});
   }, [fetchDashboard]);
 
   async function handleRun(name: string) {
@@ -248,6 +252,37 @@ export default function Overview() {
             </table>
           )}
         </div>
+      </div>
+
+      {/* Recent Blocked Actions */}
+      <div className="soc-card">
+        <h2 className="text-sm font-medium mb-3 text-gray-300">Recent Blocked Actions</h2>
+        {blocked.length === 0 ? (
+          <div className="text-gray-500 text-xs py-4 text-center">No blocked actions</div>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b border-pact-border">
+                <th className="text-left py-1.5 font-medium">Run</th>
+                <th className="text-left py-1.5 font-medium">Tool</th>
+                <th className="text-left py-1.5 font-medium">Severity</th>
+                <th className="text-right py-1.5 font-medium">Risk</th>
+                <th className="text-left py-1.5 font-medium">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {blocked.slice(0, 10).map((b, i) => (
+                <tr key={i} className="border-b border-pact-border/50">
+                  <td className="py-1.5 font-mono text-pact-info">{b.run_id.slice(0, 10)}…</td>
+                  <td className="py-1.5 font-mono text-gray-300">{b.tool}</td>
+                  <td className="py-1.5"><span className={b.severity === 'critical' ? 'text-red-400' : b.severity === 'high' ? 'text-orange-400' : 'text-yellow-400'}>{b.severity}</span></td>
+                  <td className="py-1.5 text-right font-mono">{b.risk_score}</td>
+                  <td className="py-1.5 text-gray-400 truncate max-w-xs">{b.reasons[0] ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

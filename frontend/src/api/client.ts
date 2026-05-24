@@ -176,3 +176,18 @@ export function getDashboardAgents(): Promise<AgentTrustScore[]> {
 export function verifyLedger(runId: string): Promise<LedgerVerification> {
   return request<LedgerVerification>(`/runs/${runId}/ledger/verify`);
 }
+
+export interface BlockedActionData {
+  run_id: string;
+  step_id: number;
+  agent_id: string;
+  tool: string;
+  risk_score: number;
+  severity: string;
+  reasons: string[];
+  timestamp: string | null;
+}
+
+export function getBlockedActions(): Promise<BlockedActionData[]> {
+  return request<BlockedActionData[]>('/dashboard/blocked-actions');
+}

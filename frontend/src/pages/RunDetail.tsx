@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, ExternalLink, Activity } from 'lucide-react';
-import { getRun, RunDetail as RunDetailType, ActionData } from '../api/client';
+import { getRun, RunDetail as RunDetailType, ActionData, verifyLedger, LedgerVerification } from '../api/client';
 import ActionGraph from '../components/ActionGraph';
 
 export default function RunDetail() {
@@ -11,6 +11,7 @@ export default function RunDetail() {
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showGraph, setShowGraph] = useState(false);
+  const [ledger, setLedger] = useState<LedgerVerification | null>(null);
 
   useEffect(() => {
     if (!runId) return;
@@ -18,6 +19,7 @@ export default function RunDetail() {
       .then(setRun)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
+    verifyLedger(runId).then(setLedger).catch(() => {});
   }, [runId]);
 
   if (loading) return <div className="text-gray-400 text-sm p-8">Loading run…</div>;
@@ -37,6 +39,11 @@ export default function RunDetail() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {ledger && (
+            <span className={`text-xs px-2 py-1 rounded ${ledger.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
+              {ledger.valid ? '✓ Ledger Verified' : '✗ Ledger Invalid'}
+            </span>
+          )}
           <Link
             to={`/runs/${run.run_id}/replay`}
             className="flex items-center gap-1.5 text-xs bg-pact-accent/15 text-pact-accent px-3 py-1.5 rounded hover:bg-pact-accent/25 transition-colors"
