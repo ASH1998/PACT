@@ -1,13 +1,6 @@
-```
-██████╗  █████╗  ██████╗████████╗
-██╔══██╗██╔══██╗██╔════╝╚══██╔══╝
-██████╔╝███████║██║        ██║
-██╔═══╝ ██╔══██║██║        ██║
-██║     ██║  ██║╚██████╗   ██║
-╚═╝     ╚═╝  ╚═╝ ╚═════╝   ╚═╝
-```
-
-**Provenance-Aware Capability Tokens for AI Agents**
+<p align="center">
+  <img src="docs/assets/pact-banner.svg" alt="PACT — Provenance-Aware Capability Tokens for AI Agents" width="620">
+</p>
 
 PACT is a runtime security layer for AI agents. Every tool call an agent makes
 passes through a signed gateway that verifies *who* is acting, *whether the
