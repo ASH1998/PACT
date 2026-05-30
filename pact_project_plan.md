@@ -6,7 +6,14 @@
 
 ## One-Line Pitch
 
-PACT is a protocol-level security layer for autonomous AI agents. It wraps every tool call in a signed action envelope containing agent identity, user intent, capability scope, data provenance, and a tamper-evident trace, allowing tools to reject unsafe actions before they execute.
+PACT is a protocol-level security layer for autonomous AI agents. It wraps every tool call in a signed action envelope containing agent identity, user intent, operator-granted capability and resource scope, data provenance, and a tamper-evident trace, allowing tools to reject unsafe actions before they execute.
+
+> **Status:** This is a product, not a demo. v0.0.1 ships structural least-privilege
+> enforcement (operator grants + resource scope), human approval, configurable
+> policy, a tamper-evident ledger, framework adapters, and a SOC dashboard. The
+> forward roadmap to production lives in [`road_to_prod.md`](road_to_prod.md).
+> Enforcement is **structural** — identity, authority, and data flow — never
+> keyword/blocklist matching of threat strings.
 
 ## Problem
 
@@ -39,13 +46,22 @@ PACT is not just a prompt-injection detector or policy wrapper. It introduces a 
 |---|---|
 | Agent Passport | Verifies agent identity and ownership |
 | Intent Contract | Locks the task to the user’s original goal |
-| Capability Token | Grants short-lived, scoped tool permissions |
-| Provenance Labels | Track trusted, untrusted, secret, and generated data |
+| **Operator Grant** | Deny-by-default authority ceiling on *which tools* and *which resources* — set by the operator, not the agent |
+| **Resource Scope** | Allowlists per resource type (email domains, URL hosts, file-path globs); enforced default-deny |
+| Capability Token | Grants short-lived, scoped, intent-bound tool permissions |
+| Provenance Labels | Track trusted, untrusted, secret, and generated data, and propagate the taint |
 | Action Envelope | Signs each tool call with identity, intent, capability, and provenance |
 | Tamper-Evident Ledger | Creates a hash-chained trace for audit and replay |
-| Policy Engine | Allows, blocks, or escalates actions |
+| Policy Engine | Allows, blocks, or escalates actions (configurable rules R1–R12) |
 | Agent SOC | Visualizes agent behavior, risk, and attacks |
 | Attack Replay | Replays the full causal chain of an agent run |
+
+The distinguishing idea: **authority flows from the operator, not the agent.**
+An agent cannot widen its own permissions — its per-task intent can only narrow
+within an operator-defined grant, and every resource it touches is checked
+against an allowlist. Exfiltration is blocked because the destination isn't
+authorized and secret/untrusted data can't reach an external sink — not because
+PACT recognized a bad string.
 
 ## Target Users
 
@@ -140,6 +156,12 @@ Example:
   "user_goal": "Summarize my latest invoice email",
   "allowed_actions": ["email.read", "summarize", "respond_to_user"],
   "forbidden_actions": ["email.send", "email.delete", "file.read_secret", "shell.execute"],
+  "resource_scope": {
+    "email_id": ["*"],
+    "email_address": [],
+    "file_path": ["*.md"],
+    "url": []
+  },
   "risk_budget": "low",
   "approval_required_for": ["external_write", "delete", "payment", "secret_access"],
   "intent_hash": "sha256:..."
@@ -208,18 +230,18 @@ Every tool call must include this.
 
 ### 6. Policy Engine
 
-The policy engine evaluates each action.
-
-Example policy rules:
+The policy engine evaluates each action against configurable rules (R1–R12,
+loadable from YAML or DB). Authoritative spec in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 ```text
-Rule 1: untrusted.email cannot directly trigger external_write.
-Rule 2: secret cannot flow into external_write.
-Rule 3: tool action must match intent contract.
-Rule 4: expired capability tokens are invalid.
-Rule 5: delete, payment, shell.execute_mock, and external send require human approval.
-Rule 6: agent passport signature must be valid.
-Rule 7: action hash chain must be intact.
+R1–R3:  invalid passport / signature / capability token        → BLOCK
+R4–R5:  tool not in intent allowed (or in forbidden) actions    → BLOCK
+R12:    requested resource outside operator-authorized scope    → BLOCK
+R6–R8:  untrusted (email/web) or secret data + external_write   → BLOCK
+R9:     shell execution                                          → REQUIRE_APPROVAL
+R11:    read of a critical-sensitivity resource (e.g. .env)      → REQUIRE_APPROVAL
+R10:    unknown / unregistered tool                              → BLOCK
+else:   valid identity + intent + scope + provenance            → ALLOW
 ```
 
 Policy decision output:
@@ -238,39 +260,42 @@ Policy decision output:
 }
 ```
 
-## MVP Feature Set
+## Feature Status
 
-### Must-Have
+### Shipped (v0.0.1)
 
 - Agent passport generation and verification
-- Intent contract generation
+- Intent contract generation, with operator grants and resource scope
 - Capability token issuance and validation
-- PACT action envelope creation
-- Tool gateway that rejects unsigned or invalid calls
-- Provenance labels for mock email, web, file, and secret data
-- Policy engine with allow/block/approval decisions
+- PACT action envelope creation; gateway that rejects unsigned/invalid calls
+- Provenance labels + taint propagation across steps
+- Policy engine (R1–R12), configurable via YAML/DB, with risk scoring
+- Human approval flow (REQUIRE_APPROVAL gate + resume)
 - Tamper-evident ledger using hash chaining
-- Agent SOC dashboard
-- Attack replay visualization
+- Agent SOC dashboard + attack replay
+- Interactive multi-provider agent CLI (Claude / Gemini / Bedrock)
+- Framework adapters (LangChain / LangGraph)
 
-### Good-to-Have
+### Next (roadmap — see road_to_prod.md)
 
-- Human approval flow
-- Agent trust score
-- Policy-as-code YAML editor
-- Exportable audit report
-- MCP tool metadata poisoning scanner
-- Agent-to-agent trust handshake
+- Object/field-level taint (replace run-global provenance)
+- Authority-issued identity, tenant scoping, RBAC, API authentication
+- Policy engine upgrade (OPA/Rego or Cedar) with shadow/test mode
+- Postgres + Alembic migrations; horizontal scale; observability
+- SDK + MCP gateway for drop-in adoption
+- Exportable audit/compliance report; agent trust scoring
 
-### Avoid in MVP
+### Non-goals (for now)
 
-- Full real Gmail/Slack/Drive integration
-- Complex multi-agent orchestration
-- Fully generalized taint analysis
-- Over-engineered cryptographic protocol
-- Too many LLM providers
+- Acting as a general prompt-injection *classifier* — PACT enforces structurally,
+  it does not try to detect malicious intent from natural language
+- Fully generalized whole-program taint analysis
+- Bespoke cryptography beyond standard Ed25519 / SHA-256
 
-## Demo Scenarios
+## Reference Scenarios
+
+These are regression/reference scenarios that exercise the enforcement paths
+end-to-end (they ship as tests and dashboard runs, not as throwaway demos).
 
 ### Scenario 1: Normal Email Summary
 
@@ -339,15 +364,28 @@ Capability expired.
 
 ### Scenario 5: Secret Exfiltration
 
-Agent reads `.env`, then attempts to send content externally.
+Agent reads `.env` (gated by R11 approval), then attempts to send content externally.
 
 PACT blocks:
 
 ```text
-Secret-to-external flow prohibited.
+Secret-to-external flow prohibited (R8). The .env filename is irrelevant —
+the block is on the secret→external_write data flow.
 ```
 
-### Scenario 6: Attack Replay
+### Scenario 6: Out-of-Scope Recipient
+
+Agent is authorized to send email, but to `attacker@evil.com` — an address
+outside the operator-granted `*@acme.com` scope.
+
+PACT blocks:
+
+```text
+Resource 'attacker@evil.com' is outside the authorized scope for email.send (R12).
+No keyword matching — the address simply isn't in the operator allowlist.
+```
+
+### Scenario 7: Attack Replay
 
 Dashboard shows:
 
@@ -376,19 +414,20 @@ User intent → email read → untrusted injection → attempted email send → 
 
 ### LLM
 
-- OpenAI / Gemini / Claude
-- Use one provider for MVP
-- Keep agent logic simple and deterministic where possible
+- Claude / Gemini / Bedrock supported in the interactive CLI
+- Provider-agnostic — enforcement is independent of the model
 
 ### Storage
 
-- SQLite for hackathon speed
+- SQLite today (with additive in-place migrations); Postgres + Alembic on the roadmap
 - Tables:
   - `agents`
   - `intents`
   - `capability_tokens`
   - `actions`
   - `policy_decisions`
+  - `policies`
+  - `approvals`
   - `runs`
 
 ## Database Sketch
@@ -414,8 +453,11 @@ intent_id
 user_goal
 allowed_actions
 forbidden_actions
+resource_scope_json
+approval_required_for
 risk_budget
 intent_hash
+created_by
 created_at
 ```
 
@@ -465,15 +507,17 @@ created_at
 
 ## Success Criteria
 
-By the end, the project should prove:
+PACT proves that:
 
 1. Tools cannot be called without valid action envelopes.
 2. Agents cannot act without valid signed identity.
-3. Tool permissions are short-lived and intent-bound.
-4. Untrusted content influence is visible and enforceable.
-5. Unsafe side effects are blocked before execution.
-6. Every action has a verifiable audit trail.
-7. Attacks can be replayed as a causal graph.
+3. Tool permissions are short-lived, intent-bound, and capped by an operator grant.
+4. Resources are restricted to an operator-authorized allowlist (default-deny).
+5. Untrusted/secret content influence is visible and enforceable across steps.
+6. Unsafe side effects are blocked before execution — structurally, not by string matching.
+7. Sensitive actions can require human approval.
+8. Every action has a verifiable, tamper-evident audit trail.
+9. Attacks can be replayed as a causal graph.
 
 ## Final Deliverables
 
@@ -520,11 +564,15 @@ pact/
 
 ## Final Positioning
 
-PACT should be presented as:
+PACT is:
 
 > **A runtime security protocol for agentic systems, not a chatbot guardrail.**
 
-The demo should make one thing obvious:
+The core guarantee:
 
-> Even when the agent is manipulated, the tools remain secure because actions require verifiable identity, intent, capability, and provenance.
+> Even when the agent is manipulated, the tools remain secure — because every
+> action requires verifiable identity, an intent it can't exceed, an operator
+> grant it can't widen, a resource within an authorized allowlist, and data-flow
+> that doesn't leak secrets or untrusted content to external sinks. Enforcement
+> is structural; it does not depend on recognizing the attack.
 

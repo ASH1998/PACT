@@ -440,7 +440,15 @@ SHA-256(run_id, step_id, agent_id, tool, args_digest, intent_hash,
 
 ## 4. Policy Rules
 
-The policy engine evaluates every action against 10 rules, evaluated in order. Rules are **not mutually exclusive** — multiple rules can trigger for a single action, and all reasons are collected.
+The policy engine evaluates every action against rules R1–R12, evaluated in order, and is configurable (loadable from YAML or the policy DB; see `core/policy_config.py`). Rules are **not mutually exclusive** — multiple rules can trigger for a single action, and all reasons are collected.
+
+> **Operator grants & resource scope.** Authority flows from the operator, not the
+> agent. An operator *grant* caps which tools are available and defines a
+> per-resource-type allowlist (email domains, URL hosts, file-path globs). The
+> intent stores this `resource_scope` (folded into the intent hash, so it is
+> tamper-evident), and R12 enforces it default-deny. This is what blocks
+> exfiltration structurally — the destination simply isn't authorized — rather
+> than by recognizing a malicious string.
 
 ### R1: Missing or Invalid Passport → BLOCK
 
@@ -531,6 +539,35 @@ Triggers when: The action's `provenance.influenced_by` contains `untrusted.web` 
 Triggers when: The action's `provenance.uses_data` or `provenance.influenced_by` contains `secret` **and** `provenance.side_effect` is `external_write`. This blocks secret exfiltration.
 
 > **Implementation note:** R8 checks for `"secret"` in both `influenced_by` and `uses_data` arrays. This is slightly broader than the label table suggests (which puts `secret` only in `uses_data`), but provides defense-in-depth against taint propagation edge cases.
+
+### R12: Resource Out of Scope → BLOCK
+
+```json
+{
+  "decision": "BLOCK",
+  "reasons": ["Resource 'attacker@evil.com' is outside the authorized scope for email.send"]
+}
+```
+
+Triggers when: the resource the action targets (recipient address, URL host, file
+path) is not within the intent's operator-authorized `resource_scope`. Evaluated
+as a hard authorization boundary **before** approval/taint rules, so an
+unauthorized resource is blocked outright, never merely approvable. Resource
+scoping is opt-in per intent: an intent with no `resource_scope` configured is
+not resource-restricted (preserves legacy/programmatic intents).
+
+### R11: Critical-Sensitivity Read → REQUIRE_APPROVAL
+
+```json
+{
+  "decision": "REQUIRE_APPROVAL",
+  "reasons": ["Reading sensitive resource via 'file.read_secret' requires human approval"]
+}
+```
+
+Triggers when: the tool reads a resource whose registry sensitivity is `critical`
+(e.g. `file.read_secret` on `.env`). The redacted content is only returned after
+a human approves — the filename is irrelevant; the gate is on the sensitivity.
 
 ### R9: Shell Execution → REQUIRE_APPROVAL
 
