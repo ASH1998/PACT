@@ -45,21 +45,43 @@ Useful pages:
 /agents    Agent trust scores
 ```
 
-## 3. Interactive PACT CLI
+## 3. Interactive agent — Go TUI (recommended)
 
-In a third terminal, from the repo root:
-
-```bash
-python3 pact_chat.py --provider claude
-```
-
-Or:
+In a third terminal, build and run the full-screen agent console. It is a real
+client of the PACT gateway over HTTP: it registers an agent, signs each Action
+Envelope locally (Ed25519, byte-for-byte identical to the backend), submits it
+for a decision, and only on `ALLOW` executes the tool on your machine.
 
 ```bash
-python3 pact_chat.py --provider gemini
+cd clients/pact-tui
+make build                       # or: go run . --provider auto
+./bin/pact-tui --provider claude
+# Widen authority with an operator grant (deny-by-default otherwise):
+./bin/pact-tui --provider claude --grant ../../examples/grant.acme.yaml
 ```
 
-The CLI reads these environment variables from `.env`:
+Go 1.26+ is required. With no `sudo`, install it locally:
+
+```bash
+curl -L https://go.dev/dl/$(curl -s https://go.dev/VERSION?m=text).linux-amd64.tar.gz | tar -C "$HOME/.local" -xz
+export PATH="$HOME/.local/go/bin:$PATH"
+```
+
+The TUI shows color-coded decision cards (ALLOW / REQUIRE_APPROVAL / BLOCK), a
+live sidebar (run, dashboard URL, authorized tools, resource scope, ledger), and
+inline `y / n` approvals. By default it talks to `http://localhost:8000`
+(`--backend` to change). It reads provider keys from `../../.env` and
+`../../backend/.env`.
+
+### Headless Python CLI (alternative)
+
+For piping/scripting, the original CLI still works from the repo root:
+
+```bash
+python3 pact_chat.py --provider claude   # or --provider gemini / auto
+```
+
+Both read these environment variables from `.env`:
 
 ```text
 CLAUDE_API_KEY
@@ -137,17 +159,21 @@ Expected behavior:
 - type `yes` to execute the command, or `no` to deny it
 - the dashboard shows the pending approval action and the approved execution action
 
-## 5. CLI Commands
+## 5. Commands
 
-Inside `pact_chat.py`:
+Both interfaces share the same commands:
 
 ```text
 /help       show examples
-/tools      list model-facing tools and PACT tool ids
+/tools      list authorized vs blocked tools and the resource scope
 /run        print current run id and dashboard URL
-/ledger     verify the current run ledger
-/exit       close the session
+/ledger     verify the current run ledger hash chain
+/quit       close the session   (pact_chat.py also accepts /exit)
 ```
+
+In the Go TUI, approvals are inline (`y` / `n`), and `ctrl+u` / `ctrl+d` scroll
+the conversation. In `pact_chat.py`, the prompt changes to `approve>` and you
+type `yes` / `no`.
 
 ## 6. Dashboard Verification
 
@@ -186,6 +212,15 @@ CLI import check:
 
 ```bash
 python3 pact_chat.py --help
+```
+
+Go TUI (crypto parity + canonical JSON, no backend needed; end-to-end needs a
+running backend):
+
+```bash
+cd clients/pact-tui
+make test
+PACT_E2E=1 make e2e
 ```
 
 ## 8. Troubleshooting

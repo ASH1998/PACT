@@ -94,19 +94,27 @@ cd frontend && npm install && npm run dev
 cd backend && pytest -q
 ```
 
-### Interactive agent CLI
+### Interactive agent (terminal UI)
 
-Run a real Claude/Gemini/Bedrock agent whose tools are enforced by PACT. Its
-runs appear live in the dashboard.
+Run a real Claude/Gemini/Bedrock agent whose every tool call is enforced by
+PACT. Runs appear live in the dashboard. The **`pact-tui`** client (Go +
+Bubble Tea) is a full-screen console — and a *real client of the PACT gateway
+over HTTP*: it holds its own key, signs each Action Envelope locally, submits it
+for a decision, and only then executes the tool on your machine.
 
 ```bash
-python3 pact_chat.py --provider claude
+cd clients/pact-tui && make build
+./bin/pact-tui --provider claude
 # Widen authority with an operator grant (deny-by-default otherwise):
-python3 pact_chat.py --provider claude --grant examples/grant.acme.yaml
+./bin/pact-tui --provider claude --grant ../../examples/grant.acme.yaml
 ```
 
-The header shows the active grant and authorized tools; `/tools` lists what is
-authorized vs. blocked. See [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md) for an
+Color-coded decision cards (ALLOW / REQUIRE_APPROVAL / BLOCK), a live sidebar of
+the active grant, authorized tools, and resource scope, inline `y/n` approvals,
+and `/help /tools /ledger /run`. See [clients/pact-tui/README.md](clients/pact-tui/README.md).
+
+A headless Python CLI (`python3 pact_chat.py --provider claude`) remains for
+piping/scripting. See [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md) for an
 end-to-end walkthrough.
 
 ## Architecture
@@ -122,11 +130,14 @@ backend/app/
   adapters/    LangChain / LangGraph enforcement wrappers
   tools/       tool implementations + resource extraction/scope
 frontend/src/  React + Vite SOC dashboard (overview, runs, graph, replay)
-pact_chat.py   interactive PACT-protected agent CLI
+clients/pact-tui/  Go + Bubble Tea agent TUI — a gateway HTTP client that signs
+               its own envelopes (Ed25519) and runs tools locally
+pact_chat.py   headless Python agent CLI (piping/scripting)
 ```
 
 **Stack:** FastAPI · async SQLAlchemy · PyNaCl (Ed25519) · Pydantic v2 · Pytest
-on the backend; React 18 · Vite · Tailwind · React Flow · Recharts on the frontend.
+on the backend; React 18 · Vite · Tailwind · React Flow · Recharts on the frontend;
+Go · Bubble Tea · Lipgloss for the agent TUI.
 
 ## Documentation
 
