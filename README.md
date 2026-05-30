@@ -111,8 +111,7 @@ PACT/
 │   ├── PROTOCOL.md
 │   ├── API.md
 │   └── architecture-diagram.html
-├── scripts/                         # Demo and utility scripts
-│   └── demo.sh
+├── pact_chat.py                     # Interactive PACT-protected CLI agent
 ├── frontend/                        # React + Vite + TypeScript
 │   ├── package.json
 │   ├── vite.config.ts
@@ -204,21 +203,19 @@ pytest -v
 
 ## Demo
 
-Run the automated demo script to execute all 7 scenarios and see the results:
+### Interactive PACT Agent CLI
+
+Run a real Claude/Gemini-powered CLI agent with PACT-protected tools:
 
 ```bash
-./scripts/demo.sh
+python3 pact_chat.py --provider claude
+# or
+python3 pact_chat.py --provider gemini
 ```
 
-The script will:
-1. Check that Python and Node.js are installed
-2. Install backend dependencies
-3. Start the backend server
-4. Run all 7 demo scenarios (1 safe, 5 attacks, 1 approval)
-5. Print a summary table of allowed/blocked results
-6. Fetch and display the dashboard overview
-7. Verify ledger integrity
-8. Clean up the server
+Start the backend and frontend first, then keep `http://localhost:5173` open while chatting. Tool calls made by the CLI are enforced by PACT and appear in the dashboard as `interactive_cli` runs.
+
+For local end-to-end testing, see [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md).
 
 ## Demo Scenarios
 
