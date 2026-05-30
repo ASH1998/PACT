@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -195,6 +195,28 @@ class ActionEnvelope(BaseModel):
     agent_signature: str
 
 
+class ActionEnvelopeV1(BaseModel):
+    """PACT/1.0 envelope with extended fields."""
+    protocol: str = "PACT/1.0"
+    action_id: str = ""
+    run_id: str
+    step_id: int
+    tenant_id: str = ""
+    agent_id: str
+    tool: str
+    tool_version: str = "1.0.0"
+    args: dict
+    args_digest: str
+    intent_hash: str
+    capability_token_hash: str
+    provenance: ProvenanceContext
+    parent_action_hash: Optional[str] = None
+    nonce: str = ""
+    key_id: str = ""
+    timestamp: datetime
+    agent_signature: str
+
+
 class ToolCallRequest(BaseModel):
     """Used by the scenario runner / runtime to submit a tool call through the gateway."""
     envelope: dict
@@ -208,7 +230,7 @@ class ToolCallRequest(BaseModel):
             raise ValueError(f'Envelope missing required fields: {missing}')
 
         # Validate protocol version
-        if self.envelope.get('protocol') != 'PACT/0.1':
+        if self.envelope.get('protocol') not in ('PACT/0.1', 'PACT/1.0'):
             raise ValueError(f"Unsupported protocol: {self.envelope.get('protocol')}")
 
         # Validate provenance shape
@@ -346,3 +368,76 @@ class AgentTrustScore(BaseModel):
     total_runs: int
     blocked_actions: int
     status: str
+
+
+# --- Approval ---
+
+class ApprovalRequest(BaseModel):
+    """Request to create an approval for a sensitive action."""
+    run_id: str
+    action_hash: str
+    requested_by_agent_id: str
+    envelope: Optional[dict] = None
+    ttl_seconds: int = 300
+
+
+class ApprovalResponse(BaseModel):
+    """Response for an approval request."""
+    approval_id: str
+    run_id: str
+    action_hash: str
+    requested_by_agent_id: str
+    status: str
+    requested_at: datetime
+    expires_at: Optional[datetime] = None
+
+
+class ApprovalDecision(BaseModel):
+    """Decision on a pending approval."""
+    approval_id: str
+    decision: str  # approved|denied
+    decided_by: str
+    reason: str = ""
+
+
+# --- Model Event ---
+
+class ModelEventSchema(BaseModel):
+    """Schema for recording model interaction events."""
+    event_id: str
+    run_id: str
+    provider: str
+    model: str
+    request_json: Optional[str] = None
+    response_json: Optional[str] = None
+    tool_calls_json: Optional[str] = None
+    token_usage_json: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+# --- Tool Metadata ---
+
+class ToolMetadataSchema(BaseModel):
+    """Schema for tool registration."""
+    tool_id: str
+    display_name: str
+    version: str = "1.0.0"
+    description: str = ""
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
+    side_effect: str = "none"
+    resource_type: str = "default"
+    resource_extractor: dict[str, Any] = Field(default_factory=dict)
+    output_provenance: list[str] = Field(default_factory=list)
+    sensitivity: str = "low"
+    default_requires_approval: bool = False
+
+
+# --- Programmatic Intent ---
+
+class ProgrammaticIntentRequest(BaseModel):
+    """Allows explicit allowed_actions/forbidden_actions instead of keyword classification."""
+    user_goal: str
+    created_by: str = "system"
+    allowed_actions: list[str] = Field(default_factory=list)
+    forbidden_actions: list[str] = Field(default_factory=list)
