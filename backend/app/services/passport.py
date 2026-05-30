@@ -2,13 +2,12 @@ from __future__ import annotations
 """Passport Service — create, sign, store, and verify agent passports."""
 
 import json
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crypto import generate_keypair, sign, verify, canonical_json, hash_bytes
+from app.crypto import generate_keypair, sign, verify, canonical_json
 from app.models.agent import Agent
 
 

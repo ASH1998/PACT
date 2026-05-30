@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crypto import canonical_json, hash_payload
+from app.crypto import hash_payload
 from app.models.intent import Intent
 
 
@@ -89,15 +89,28 @@ def classify_intent(user_goal: str) -> dict:
 class IntentService:
     """Handles intent contract creation and retrieval."""
 
-    async def create_intent(self, db: AsyncSession, user_goal: str, created_by: str = "system") -> dict:
-        """Create an intent contract from a user goal."""
+    async def create_intent(
+        self,
+        db: AsyncSession,
+        user_goal: str,
+        created_by: str = "system",
+        resource_scope: dict | None = None,
+    ) -> dict:
+        """Create an intent contract from a user goal.
+
+        `resource_scope` is the operator-authorized resource allowlist
+        ({resource_type: [patterns]}). It is part of the intent contract and is
+        folded into the intent hash so the authorized scope is tamper-evident.
+        """
         classification = classify_intent(user_goal)
+        resource_scope = resource_scope or {}
 
         # Generate hash from canonical form (include created_by for ownership isolation)
         hash_input = {
             "user_goal": user_goal,
             "allowed_actions": sorted(classification["allowed_actions"]),
             "forbidden_actions": sorted(classification["forbidden_actions"]),
+            "resource_scope": json.dumps(resource_scope, sort_keys=True),
             "risk_budget": classification["risk_budget"],
             "created_by": created_by,
         }
@@ -112,6 +125,7 @@ class IntentService:
                 "user_goal": existing.user_goal,
                 "allowed_actions": json.loads(existing.allowed_actions_json),
                 "forbidden_actions": json.loads(existing.forbidden_actions_json),
+                "resource_scope": json.loads(existing.resource_scope_json or "{}"),
                 "approval_required_for": json.loads(existing.approval_required_for_json),
                 "risk_budget": existing.risk_budget,
                 "intent_hash": existing.intent_hash,
@@ -128,6 +142,7 @@ class IntentService:
             user_goal=user_goal,
             allowed_actions_json=json.dumps(classification["allowed_actions"]),
             forbidden_actions_json=json.dumps(classification["forbidden_actions"]),
+            resource_scope_json=json.dumps(resource_scope),
             approval_required_for_json=json.dumps(classification["approval_required_for"]),
             risk_budget=classification["risk_budget"],
             intent_hash=intent_hash,
@@ -141,6 +156,7 @@ class IntentService:
             "user_goal": user_goal,
             "allowed_actions": classification["allowed_actions"],
             "forbidden_actions": classification["forbidden_actions"],
+            "resource_scope": resource_scope,
             "risk_budget": classification["risk_budget"],
             "approval_required_for": classification["approval_required_for"],
             "intent_hash": intent_hash,
@@ -160,6 +176,7 @@ class IntentService:
             "user_goal": intent.user_goal,
             "allowed_actions": json.loads(intent.allowed_actions_json),
             "forbidden_actions": json.loads(intent.forbidden_actions_json),
+            "resource_scope": json.loads(intent.resource_scope_json or "{}"),
             "approval_required_for": json.loads(intent.approval_required_for_json),
             "risk_budget": intent.risk_budget,
             "intent_hash": intent.intent_hash,
@@ -179,6 +196,7 @@ class IntentService:
             "user_goal": intent.user_goal,
             "allowed_actions": json.loads(intent.allowed_actions_json),
             "forbidden_actions": json.loads(intent.forbidden_actions_json),
+            "resource_scope": json.loads(intent.resource_scope_json or "{}"),
             "approval_required_for": json.loads(intent.approval_required_for_json),
             "risk_budget": intent.risk_budget,
             "intent_hash": intent.intent_hash,

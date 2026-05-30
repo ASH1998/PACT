@@ -45,7 +45,25 @@ class ProvenanceService:
 
     def get_tool_labels(self, tool: str) -> dict:
         """Get default provenance labels for a tool."""
-        return TOOL_LABELS.get(tool, {"output_label": "agent.generated", "side_effect": None})
+        if tool in TOOL_LABELS:
+            return TOOL_LABELS[tool]
+
+        try:
+            from app.core.registry import get_default_registry
+
+            tool_entry = get_default_registry().get_tool(tool)
+            if tool_entry:
+                metadata = tool_entry.get("metadata", {})
+                output_labels = metadata.get("output_provenance") or []
+                side_effect = metadata.get("side_effect")
+                return {
+                    "output_label": output_labels[0] if output_labels else None,
+                    "side_effect": side_effect if side_effect != "none" else None,
+                }
+        except Exception:
+            pass
+
+        return {"output_label": "agent.generated", "side_effect": None}
 
     def start_run(self, run_id: str) -> None:
         """Initialize provenance tracking for a run."""

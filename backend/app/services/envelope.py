@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.crypto import sign, verify, canonical_json, hash_payload
-from app.schemas import ActionEnvelope, ProvenanceContext
 
 
 class EnvelopeService:

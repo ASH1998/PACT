@@ -1,7 +1,6 @@
 from __future__ import annotations
 """Capability Service — issue, validate, and consume short-lived capability tokens."""
 
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update

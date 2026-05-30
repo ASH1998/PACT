@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crypto import canonical_json, hash_payload
+from app.crypto import hash_payload
 from app.models.action import Action
 
 
