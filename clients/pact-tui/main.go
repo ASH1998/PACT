@@ -88,7 +88,7 @@ func main() {
 		MaxToolRounds: *maxRounds,
 	}
 
-	p := tea.NewProgram(ui.New(ag, *dashboard), tea.WithAltScreen())
+	p := tea.NewProgram(ui.New(ag, *dashboard), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

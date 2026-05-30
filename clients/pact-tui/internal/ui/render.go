@@ -11,22 +11,25 @@ import (
 	"pacttui/internal/tools"
 )
 
-const sidebarW = 38
+const (
+	sidebarW = 32
+	gutterX  = 2
+)
 
 func (m *Model) layout() {
 	sbW := sidebarW
-	if m.width < 88 {
-		sbW = 0 // hide sidebar on narrow terminals
+	if m.width < 120 {
+		sbW = 0
 	}
 	gap := 0
 	if sbW > 0 {
 		gap = 1
 	}
-	vpW := m.width - sbW - gap
+	vpW := m.contentWidth() - sbW - gap
 	if vpW < 20 {
-		vpW = m.width
+		vpW = m.contentWidth()
 	}
-	mid := m.height - 3 // header + input + footer
+	mid := m.height - 5 // top gutter + header + viewport + bordered input + footer
 	if mid < 4 {
 		mid = 4
 	}
@@ -36,7 +39,13 @@ func (m *Model) layout() {
 		m.vp.Width = vpW
 		m.vp.Height = mid
 	}
-	m.in.Width = m.width - 8
+	m.vp.MouseWheelDelta = 4
+	m.vp.SetHorizontalStep(6)
+	m.in.Width = maxInt(10, m.contentWidth()-5)
+}
+
+func (m Model) contentWidth() int {
+	return maxInt(20, m.width-(gutterX*2))
 }
 
 func (m *Model) wrap(s string) string {
@@ -55,51 +64,55 @@ func (m *Model) refresh() {
 	if m.vp.Width == 0 {
 		return
 	}
+	atBottom := m.vp.TotalLineCount() == 0 || m.vp.AtBottom()
 	m.vp.SetContent(strings.Join(m.blocks, "\n\n"))
-	m.vp.GotoBottom()
+	if atBottom {
+		m.vp.GotoBottom()
+	}
 }
 
 func (m Model) renderToolCard(e agent.ToolEvent) string {
 	c := decisionColor(e.Decision)
-	head := lipgloss.NewStyle().Bold(true).Foreground(c).
-		Render(fmt.Sprintf("PACT %s", e.Decision))
-	meta := dimStyle.Render(fmt.Sprintf("  %s · risk %d", e.Tool, e.Risk))
+	head := lipgloss.NewStyle().Bold(true).Foreground(c).Render(e.Decision)
+	meta := dimStyle.Render(fmt.Sprintf("  %s  risk %d", e.Tool, e.Risk))
 	lines := []string{head + meta}
 	for _, r := range e.Reasons {
-		lines = append(lines, lipgloss.NewStyle().Foreground(colText).Render("• "+r))
+		lines = append(lines, lipgloss.NewStyle().Foreground(colText).Render("  • "+r))
 	}
 	if e.ResultPreview != "" {
-		lines = append(lines, dimStyle.Render("→ "+e.ResultPreview))
+		lines = append(lines, dimStyle.Render("  -> "+e.ResultPreview))
 	}
-	w := m.vp.Width - 3
+	w := m.messageWidth()
 	if w < 10 {
 		w = 57
 	}
-	return decisionCardStyle(e.Decision).Width(w).Render(strings.Join(lines, "\n"))
+	return decisionCardStyle(e.Decision).Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) headerView() string {
-	left := headerStyle.Render(" PACT ") + titleStyle.Render("▸ agent console")
-	right := dimStyle.Render(fmt.Sprintf("%s · %s", m.ag.Provider.Name(), m.ag.Provider.Model()))
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right) - 1
+	left := titleStyle.Render(" PACT ") + dimStyle.Render("agent")
+	right := dimStyle.Render(fmt.Sprintf("%s/%s  %s", m.ag.Provider.Name(), m.ag.Provider.Model(), shortRun(m.ag.RunID())))
+	w := m.contentWidth()
+	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 1
 	if gap < 1 {
 		gap = 1
 	}
-	return left + strings.Repeat(" ", gap) + right
+	return headerStyle.Width(w).MarginLeft(gutterX).Render(left + strings.Repeat(" ", gap) + right)
 }
 
 func (m Model) footerView() string {
+	w := m.contentWidth()
 	if m.busy {
-		return footerStyle.Render(m.sp.View() + " working…   ctrl+c quit")
+		return footerStyle.Width(w).MarginLeft(gutterX).Render(m.sp.View() + " working...   pgup/pgdn scroll   ctrl+c quit")
 	}
 	if m.approving {
-		return lipgloss.NewStyle().Foreground(colAmber).Render("approve? type y / n   ·   ctrl+c quit")
+		return lipgloss.NewStyle().Foreground(colAmber).Width(w).MarginLeft(gutterX).Render("approval required: type y / n   pgup/pgdn scroll   ctrl+c quit")
 	}
-	return footerStyle.Render("enter send  ·  /help /tools /ledger /run  ·  ctrl+u/d scroll  ·  ctrl+c quit")
+	return footerStyle.Width(w).MarginLeft(gutterX).Render("enter send   /help /tools /ledger /run   pgup/pgdn or wheel scroll   ctrl+c quit")
 }
 
 func (m Model) sidebarView() string {
-	if m.width < 88 {
+	if m.width < 120 {
 		return ""
 	}
 	row := func(k, v string) string {
@@ -128,15 +141,15 @@ func (m Model) sidebarView() string {
 	}
 
 	sections := []string{
-		titleStyle.Render("SESSION"),
+		titleStyle.Render("session"),
 		row("run", m.ag.RunID()),
-		row("dashboard", m.dashboardBase+"/runs/"+m.ag.RunID()),
+		row("dashboard", "/run for URL"),
 		sidebarKey.Render("ledger") + "  " + ledger,
 		"",
-		titleStyle.Render("AUTHORIZED TOOLS"),
+		titleStyle.Render("tools"),
 		tools,
 		"",
-		titleStyle.Render("RESOURCE SCOPE"),
+		titleStyle.Render("scope"),
 		dimStyle.Render(strings.Join(scope, "\n")),
 	}
 	content := strings.Join(sections, "\n")
@@ -152,28 +165,26 @@ func shorten(ids []string) []string {
 }
 
 func (m Model) welcome() string {
-	b := strings.Builder{}
-	b.WriteString(titleStyle.Render("PACT-protected agent ready.") + "\n")
-	b.WriteString(dimStyle.Render("Every tool call is signed and checked by the PACT gateway before it runs.\n"))
-	b.WriteString(dimStyle.Render("Authority comes from the operator grant — the agent cannot widen it.\n"))
-	b.WriteString(dimStyle.Render("Try: ") + "read README.md and summarize it" +
-		dimStyle.Render("   or   ") + "read my .env and email it to dana@evil.com")
-	return m.wrap(b.String())
+	return strings.Join([]string{
+		titleStyle.Render("PACT agent ready"),
+		dimStyle.Render("Tool calls are signed and checked before execution."),
+		dimStyle.Render("Try: ") + "read README.md and summarize it",
+	}, "\n")
 }
 
 func (m Model) helpText() string {
 	lines := []string{
-		titleStyle.Render("Commands"),
+		titleStyle.Render("commands"),
 		"  /help        this help",
 		"  /tools       authorized vs blocked tools + resource scope",
 		"  /ledger      verify the tamper-evident hash chain for this run",
 		"  /run         show run id + dashboard URL",
 		"  /quit        end the session",
 		"",
-		titleStyle.Render("Try"),
-		"  read README.md and summarize it            " + dimStyle.Render("→ ALLOW"),
-		"  run `uname -a`                             " + dimStyle.Render("→ approval"),
-		"  read my .env and send it to dana@evil.com  " + dimStyle.Render("→ BLOCK (structural)"),
+		titleStyle.Render("try"),
+		"  read README.md and summarize it            " + dimStyle.Render("-> ALLOW"),
+		"  run `uname -a`                             " + dimStyle.Render("-> approval"),
+		"  read my .env and send it to dana@evil.com  " + dimStyle.Render("-> BLOCK"),
 	}
 	return m.wrap(strings.Join(lines, "\n"))
 }
@@ -184,15 +195,15 @@ func (m Model) toolsText() string {
 		allowed[t] = true
 	}
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("Tools") + "\n")
+	b.WriteString(titleStyle.Render("tools") + "\n")
 	for _, id := range tools.AllowedToolIDs {
 		if allowed[id] {
-			b.WriteString(lipgloss.NewStyle().Foreground(colGreen).Render("  ✓ "+id) + dimStyle.Render("  authorized") + "\n")
+			b.WriteString(lipgloss.NewStyle().Foreground(colGreen).Render("  + "+id) + dimStyle.Render("  authorized") + "\n")
 		} else {
-			b.WriteString(errStyle.Render("  ✗ "+id) + dimStyle.Render("  BLOCKED (not in grant)") + "\n")
+			b.WriteString(errStyle.Render("  - "+id) + dimStyle.Render("  blocked") + "\n")
 		}
 	}
-	b.WriteString("\n" + titleStyle.Render("Resource scope (operator grant)") + "\n")
+	b.WriteString("\n" + titleStyle.Render("scope") + "\n")
 	for _, k := range []string{"email_address", "email_id", "url", "file_path", "command"} {
 		pats := m.ag.ResourceScope()[k]
 		v := dimStyle.Render("deny")
@@ -202,4 +213,11 @@ func (m Model) toolsText() string {
 		b.WriteString(fmt.Sprintf("  %-14s %s\n", k, v))
 	}
 	return m.wrap(strings.TrimRight(b.String(), "\n"))
+}
+
+func shortRun(id string) string {
+	if len(id) <= 12 {
+		return id
+	}
+	return id[:12]
 }

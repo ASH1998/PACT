@@ -46,9 +46,13 @@ type Model struct {
 // New builds the UI model for an (un-set-up) agent.
 func New(ag *agent.Agent, dashboardBase string) Model {
 	ti := textinput.New()
-	ti.Placeholder = "Ask the agent…  (try: read README.md and summarize it)"
-	ti.Prompt = "you › "
+	ti.Placeholder = "Ask PACT..."
+	ti.Prompt = ">"
 	ti.CharLimit = 4000
+	ti.PromptStyle = youStyle
+	ti.TextStyle = lipgloss.NewStyle().Foreground(colText)
+	ti.PlaceholderStyle = dimStyle
+	ti.Cursor.Style = lipgloss.NewStyle().Foreground(colAmber)
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -119,7 +123,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !msg.l.Valid {
 				status = errStyle.Render("INVALID")
 			}
-			line := fmt.Sprintf("%s ledger %s", sysStyle.Render("/ledger →"), status)
+			line := fmt.Sprintf("%s ledger %s", sysStyle.Render("/ledger ->"), status)
 			if len(msg.l.Issues) > 0 {
 				line += "\n" + dimStyle.Render("  "+strings.Join(msg.l.Issues, "\n  "))
 			}
@@ -133,6 +137,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case tea.MouseMsg:
+		if m.ready {
+			var cmd tea.Cmd
+			m.vp, cmd = m.vp.Update(msg)
+			return m, cmd
+		}
 	}
 
 	// Forward to input when interactive.
@@ -151,11 +162,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			func() tea.Msg { _ = m.ag.Complete(context.Background()); return nil },
 			tea.Quit,
 		)
-	case "ctrl+u":
-		m.vp.HalfPageUp()
+	case "pgup", "pgdown", "ctrl+u", "ctrl+d":
+		var cmd tea.Cmd
+		m.vp, cmd = m.vp.Update(msg)
+		return m, cmd
+	case "alt+up":
+		m.vp.ScrollUp(1)
 		return m, nil
-	case "ctrl+d":
-		m.vp.HalfPageDown()
+	case "alt+down":
+		m.vp.ScrollDown(1)
 		return m, nil
 	}
 
@@ -184,7 +199,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) startTurn(text string) (tea.Model, tea.Cmd) {
-	m.appendBlock(youStyle.Render("you › ") + text)
+	m.appendBlock(m.renderUser(text))
 	m.busy = true
 	m.eventCh = make(chan agent.Event, 64)
 	ch := m.eventCh
@@ -203,7 +218,7 @@ func (m Model) resolveApproval(val string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.approving = false
-	m.in.Placeholder = "Ask the agent…"
+	m.in.Placeholder = "Ask PACT..."
 	m.busy = true
 	verb := "approved"
 	if no {
@@ -220,7 +235,7 @@ func (m Model) resolveApproval(val string) (tea.Model, tea.Cmd) {
 func (m Model) handleEvent(ev agent.Event) (tea.Model, tea.Cmd) {
 	switch e := ev.(type) {
 	case agent.AgentText:
-		m.appendBlock(agentStyle.Render("agent › ") + e.Text)
+		m.appendBlock(m.renderAgent(e.Text))
 		m.refresh()
 		return m, waitEvent(m.eventCh)
 	case agent.ToolEvent:
@@ -232,7 +247,7 @@ func (m Model) handleEvent(ev agent.Event) (tea.Model, tea.Cmd) {
 		m.busy = false
 		m.in.Placeholder = "approve? (y / n)"
 		m.appendBlock(lipgloss.NewStyle().Foreground(colAmber).Bold(true).
-			Render("⚠ PACT requires approval for: "+strings.Join(e.Tools, ", ")) +
+			Render("! PACT requires approval for: "+strings.Join(e.Tools, ", ")) +
 			"\n" + dimStyle.Render("  type y to approve or n to deny"))
 		m.refresh()
 		return m, nil
@@ -250,7 +265,11 @@ func (m Model) handleEvent(ev agent.Event) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleCommand(cmd string) (tea.Model, tea.Cmd) {
-	switch strings.Fields(cmd)[0] {
+	fields := strings.Fields(cmd)
+	if len(fields) == 0 {
+		return m, nil
+	}
+	switch fields[0] {
 	case "/quit", "/exit":
 		return m, tea.Sequence(
 			func() tea.Msg { _ = m.ag.Complete(context.Background()); return nil },
@@ -264,7 +283,7 @@ func (m Model) handleCommand(cmd string) (tea.Model, tea.Cmd) {
 		m.appendBlock(sysStyle.Render("run ") + m.ag.RunID() + "\n" +
 			dimStyle.Render(m.dashboardBase+"/runs/"+m.ag.RunID()))
 	case "/ledger":
-		m.appendBlock(sysStyle.Render("verifying ledger…"))
+		m.appendBlock(sysStyle.Render("verifying ledger..."))
 		m.refresh()
 		return m, m.ledgerCmd()
 	default:
@@ -277,9 +296,14 @@ func (m Model) handleCommand(cmd string) (tea.Model, tea.Cmd) {
 // View renders the UI.
 func (m Model) View() string {
 	if !m.ready {
-		return "\n  " + m.sp.View() + " starting PACT agent console…"
+		return "\n  " + m.sp.View() + " starting PACT agent console..."
 	}
 	header := m.headerView()
-	body := lipgloss.JoinHorizontal(lipgloss.Top, m.vp.View(), m.sidebarView())
-	return strings.Join([]string{header, body, m.in.View(), m.footerView()}, "\n")
+	sidebar := m.sidebarView()
+	body := lipgloss.NewStyle().MarginLeft(gutterX).Render(m.vp.View())
+	if sidebar != "" {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, body, " ", sidebar)
+	}
+	input := inputStyle.Width(m.contentWidth()).MarginLeft(gutterX).Render(m.in.View())
+	return appStyle.Width(m.width).Render(strings.Join([]string{"", header, body, input, m.footerView()}, "\n"))
 }
