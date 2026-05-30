@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Shield, CheckCircle, XCircle, AlertTriangle, Play, Loader2, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Fingerprint,
+  GitBranch,
+  KeyRound,
+  Loader2,
+  PenLine,
+  Play,
+  Route,
+  Shield,
+  Tags,
+  XCircle,
+  Zap,
+} from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -31,17 +45,27 @@ export default function Overview() {
   const [runError, setRunError] = useState('');
   const [blocked, setBlocked] = useState<BlockedActionData[]>([]);
 
-  const fetchDashboard = useCallback(() => {
-    getDashboardOverview()
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const [overview, blockedActions] = await Promise.all([
+        getDashboardOverview(),
+        getBlockedActions(),
+      ]);
+      setData(overview);
+      setBlocked(blockedActions);
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     fetchDashboard();
     getScenarios().then(setScenarios).catch(() => {});
-    getBlockedActions().then(setBlocked).catch(() => {});
+    const id = window.setInterval(fetchDashboard, 3000);
+    return () => window.clearInterval(id);
   }, [fetchDashboard]);
 
   async function handleRun(name: string) {
@@ -51,7 +75,7 @@ export default function Overview() {
     try {
       const result = await runScenario(name);
       setLastResult(result);
-      fetchDashboard(); // auto-refresh metrics
+      fetchDashboard();
     } catch (e: unknown) {
       setRunError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -80,7 +104,28 @@ export default function Overview() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold tracking-tight">Dashboard Overview</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-pact-accent mb-2">
+            <Shield className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-wider">Agent Security Operations</span>
+          </div>
+          <h1 className="text-xl font-semibold tracking-tight">Trust Monitor</h1>
+        </div>
+        <div className="rounded border border-pact-border bg-pact-surface px-3 py-2 text-xs">
+          <div className="text-gray-500">Runtime Decision Point</div>
+          <div className="font-mono text-green-400">PACT Gateway</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-6 gap-3">
+        <TrustSignal icon={Fingerprint} label="Identity" value="passport" />
+        <TrustSignal icon={Route} label="Intent" value="goal lock" />
+        <TrustSignal icon={KeyRound} label="Capability" value="scoped token" />
+        <TrustSignal icon={Tags} label="Provenance" value="taint flow" />
+        <TrustSignal icon={PenLine} label="Policy" value="allow/block" />
+        <TrustSignal icon={GitBranch} label="Ledger" value="hash chain" />
+      </div>
 
       {/* Metric cards */}
       <div className="grid grid-cols-4 gap-4">
@@ -277,7 +322,7 @@ export default function Overview() {
                   <td className="py-1.5 font-mono text-gray-300">{b.tool}</td>
                   <td className="py-1.5"><span className={b.severity === 'critical' ? 'text-red-400' : b.severity === 'high' ? 'text-orange-400' : 'text-yellow-400'}>{b.severity}</span></td>
                   <td className="py-1.5 text-right font-mono">{b.risk_score}</td>
-                  <td className="py-1.5 text-gray-400 truncate max-w-xs">{b.reasons[0] ?? '—'}</td>
+                  <td className="py-1.5 text-gray-400 truncate max-w-xs">{b.reasons.join(' | ') || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -299,6 +344,24 @@ function Skeleton() {
         ))}
       </div>
       <div className="soc-card h-60" />
+    </div>
+  );
+}
+
+function TrustSignal({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Shield;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="soc-card min-h-[88px]">
+      <Icon className="w-4 h-4 text-pact-accent" />
+      <div className="mt-3 text-[10px] uppercase tracking-wider text-gray-500">{label}</div>
+      <div className="mt-1 text-xs font-mono text-gray-200">{value}</div>
     </div>
   );
 }
