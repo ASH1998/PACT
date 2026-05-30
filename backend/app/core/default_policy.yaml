@@ -1,0 +1,117 @@
+# PACT Default Policy Rules
+# These rules match the current hardcoded policy behavior.
+# Load with: PolicyConfig.from_yaml("default_policy.yaml")
+
+rules:
+  - id: R1-invalid-passport
+    name: Invalid Passport
+    condition:
+      passport_valid: false
+    action: BLOCK
+    severity: critical
+    risk_score: 100
+    reason: "Invalid agent passport: {passport_reason}"
+
+  - id: R2-invalid-signature
+    name: Invalid Signature
+    condition:
+      signature_valid: false
+    action: BLOCK
+    severity: critical
+    risk_score: 100
+    reason: "Invalid action signature"
+
+  - id: R3-invalid-capability
+    name: Invalid Capability
+    condition:
+      capability_valid: false
+    action: BLOCK
+    severity: high
+    risk_score: 60
+    reason: "Capability token invalid: {capability_reason}"
+
+  - id: R4-intent-mismatch
+    name: Intent Mismatch
+    condition:
+      tool_not_in_allowed: true
+    action: BLOCK
+    severity: high
+    risk_score: 50
+    reason: "{tool} not allowed by intent contract"
+
+  - id: R5-intent-forbidden
+    name: Intent Forbidden
+    condition:
+      tool_in_forbidden: true
+    action: BLOCK
+    severity: high
+    risk_score: 50
+    reason: "{tool} is explicitly forbidden by intent contract"
+
+  # Hard authorization boundary — before approval/taint rules.
+  - id: R12-resource-out-of-scope
+    name: Resource Out Of Scope
+    condition:
+      resource_in_scope: false
+    action: BLOCK
+    severity: high
+    risk_score: 70
+    reason: "Resource '{resource}' is outside the authorized scope for {tool}"
+
+  - id: R6-untrusted-email-external-write
+    name: Untrusted Email + External Write
+    condition:
+      untrusted_source: untrusted.email
+      side_effect: external_write
+    action: BLOCK
+    severity: critical
+    risk_score: 80
+    reason: "External write influenced by untrusted email content"
+
+  - id: R7-untrusted-web-external-write
+    name: Untrusted Web + External Write
+    condition:
+      untrusted_source: untrusted.web
+      side_effect: external_write
+    action: BLOCK
+    severity: critical
+    risk_score: 80
+    reason: "External write influenced by untrusted web content"
+
+  - id: R8-secret-external-write
+    name: Secret + External Write
+    condition:
+      has_secret_data: true
+      side_effect: external_write
+    action: BLOCK
+    severity: critical
+    risk_score: 80
+    reason: "Secret data may flow to external destination"
+
+  - id: R9-shell-approval
+    name: Shell Execution Approval
+    condition:
+      tool_prefix: "shell."
+    action: REQUIRE_APPROVAL
+    severity: high
+    risk_score: 60
+    reason: "Shell execution requires human approval"
+
+  - id: R10-unknown-tool
+    name: Unknown Tool
+    condition:
+      tool_unknown: true
+    action: BLOCK
+    severity: high
+    risk_score: 50
+    reason: "Tool '{tool}' is not registered"
+
+  - id: R11-secret-read-approval
+    name: Secret/Critical Read Approval
+    condition:
+      sensitivity: critical
+      side_effect: read
+    action: REQUIRE_APPROVAL
+    severity: high
+    risk_score: 60
+    reason: "Reading sensitive resource via '{tool}' requires human approval"

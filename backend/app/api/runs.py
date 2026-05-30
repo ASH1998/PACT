@@ -13,13 +13,11 @@ from app.models.action import Action
 from app.models.policy_decision import PolicyDecision as PolicyDecisionModel
 from app.schemas import (
     RunResponse,
-    ActionResponse,
     ReplayResponse,
     ReplayStep,
     PolicyDecision,
     ProvenanceContext,
     ActionEnvelope,
-    ActionStatus,
     RunStatus,
     Severity,
     Decision,
