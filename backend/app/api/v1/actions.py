@@ -57,6 +57,32 @@ async def propose_action(req: ProposeActionRequest, db: AsyncSession = Depends(g
     return result
 
 
+class AttachResultRequest(BaseModel):
+    result: dict = {}
+
+
+@router.post("/{action_hash}/result")
+async def attach_result(
+    action_hash: str, req: AttachResultRequest, db: AsyncSession = Depends(get_db)
+):
+    """Attach a client-executed tool result to an action.
+
+    Used by external clients that execute tools locally after the gateway
+    returns ALLOW. The result is persisted on the action record for the
+    dashboard and replay views.
+    """
+    result = await db.execute(select(Action).where(Action.action_hash == action_hash))
+    action = result.scalar_one_or_none()
+    if not action:
+        raise HTTPException(status_code=404, detail=f"Action {action_hash} not found")
+
+    from app.core.factory import get_runtime
+
+    runtime = get_runtime()
+    await runtime.record_tool_result(db, action_hash, req.result)
+    return {"action_hash": action_hash, "status": action.status, "recorded": True}
+
+
 @router.post("/{action_id}/execute")
 async def execute_action(action_id: str, db: AsyncSession = Depends(get_db)):
     """Execute an approved action.

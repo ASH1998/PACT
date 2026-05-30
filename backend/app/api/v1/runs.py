@@ -79,6 +79,54 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
+class ModelEventRequest(BaseModel):
+    provider: str
+    model: str
+    request_json: str = "{}"
+    response_json: str = "{}"
+    tool_calls: list | None = None
+    token_usage: dict | None = None
+
+
+@router.post("/{run_id}/model-events")
+async def record_model_event(
+    run_id: str, req: ModelEventRequest, db: AsyncSession = Depends(get_db)
+):
+    """Record a model interaction event for a run (shown in the dashboard)."""
+    result = await db.execute(select(Run).where(Run.run_id == run_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+    from app.core.factory import get_runtime
+
+    runtime = get_runtime()
+    return await runtime.record_model_event(
+        db=db,
+        run_id=run_id,
+        provider=req.provider,
+        model=req.model,
+        request_json=req.request_json,
+        response_json=req.response_json,
+        tool_calls=req.tool_calls,
+        token_usage=req.token_usage,
+    )
+
+
+@router.post("/{run_id}/complete")
+async def complete_run(run_id: str, db: AsyncSession = Depends(get_db)):
+    """Mark a run as completed."""
+    from datetime import datetime, timezone
+
+    result = await db.execute(select(Run).where(Run.run_id == run_id))
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    run.status = "completed"
+    run.completed_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"run_id": run_id, "status": run.status}
+
+
 @router.get("/{run_id}/replay")
 async def get_replay(run_id: str, db: AsyncSession = Depends(get_db)):
     """Get replay data for a run."""

@@ -20,11 +20,17 @@ class CreateIntentRequest(BaseModel):
     created_by: str = "api"
     allowed_actions: list[str] | None = None
     forbidden_actions: list[str] | None = None
+    resource_scope: dict[str, list[str]] | None = None
 
 
 @router.post("")
 async def create_intent(req: CreateIntentRequest, db: AsyncSession = Depends(get_db)):
-    """Create an intent contract. Supports keyword and programmatic modes."""
+    """Create an intent contract. Supports keyword and programmatic modes.
+
+    ``resource_scope`` is the operator-authorized per-resource-type allowlist
+    (email domains, URL hosts, file globs). It is folded into the intent hash so
+    the authorized scope is tamper-evident and enforced default-deny by R12.
+    """
     from app.core.factory import get_runtime
 
     runtime = get_runtime()
@@ -34,6 +40,7 @@ async def create_intent(req: CreateIntentRequest, db: AsyncSession = Depends(get
         created_by=req.created_by,
         allowed_actions=req.allowed_actions,
         forbidden_actions=req.forbidden_actions,
+        resource_scope=req.resource_scope,
     )
     return result
 

@@ -47,6 +47,7 @@ class GatewayService:
         run_id: str,
         dry_run: bool = False,
         skip_approval: bool = False,
+        execute_tool: bool = True,
     ) -> ToolCallResponse:
         """Execute a tool call through the PACT gateway.
 
@@ -59,6 +60,12 @@ class GatewayService:
         When skip_approval=True, if the policy would return REQUIRE_APPROVAL,
         the decision is overridden to ALLOW. Used by resume_approved() to prevent
         approval loops on already-approved actions.
+
+        When execute_tool=False, the gateway performs every check and records the
+        decision, ledger entry, and token consumption, but does NOT run the tool
+        server-side. This is the path for external clients (e.g. the Go TUI) that
+        hold their own tools and execute them locally, then attach the result via
+        record_tool_result(). The decision is still authoritative.
         """
         agent_id = envelope.get("agent_id")
         tool = envelope.get("tool")
@@ -262,9 +269,11 @@ class GatewayService:
             envelope_timestamp=envelope.get("timestamp", ""),
         )
 
-        # Step 8: If ALLOW, execute the tool via registry
+        # Step 8: If ALLOW, execute the tool via registry (unless the caller
+        # executes tools itself — external clients pass execute_tool=False and
+        # attach the result afterwards via record_tool_result()).
         tool_result = None
-        if policy_decision.decision == Decision.ALLOW:
+        if policy_decision.decision == Decision.ALLOW and execute_tool:
             tool_fn = None
             if self._tool_registry is not None:
                 tool_fn = self._tool_registry.get_callable(tool)
