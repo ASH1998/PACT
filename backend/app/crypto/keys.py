@@ -3,7 +3,6 @@
 import base64
 
 from nacl.signing import SigningKey, VerifyKey
-from nacl.encoding import Base64Encoder
 
 
 def generate_keypair() -> tuple[str, str]:
