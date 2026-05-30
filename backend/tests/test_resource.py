@@ -1,4 +1,3 @@
-import pytest
 from app.tools.resource import resource_from_args
 
 class TestResourceFromArgs:

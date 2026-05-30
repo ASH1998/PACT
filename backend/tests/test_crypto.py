@@ -1,6 +1,5 @@
 """Test: crypto service — Ed25519 keys, signing, verification, hashing."""
 
-import pytest
 from app.crypto import generate_keypair, sign, verify, canonical_json, hash_payload, hash_bytes
 
 

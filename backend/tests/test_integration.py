@@ -1,7 +1,6 @@
 """Test: PACT API integration — full lifecycle."""
 
 import pytest
-import json
 
 
 @pytest.mark.asyncio

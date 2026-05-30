@@ -1,6 +1,5 @@
 """Tests for mock tools."""
 
-import pytest
 from app.tools import get_mock_tool, list_tools
 
 

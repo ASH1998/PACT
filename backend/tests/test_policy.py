@@ -1,6 +1,5 @@
 """Test: policy engine — risk scoring and decision logic."""
 
-import pytest
 from app.services.policy import PolicyService, compute_risk_score
 from app.schemas import Decision, Severity
 
