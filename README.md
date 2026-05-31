@@ -100,6 +100,19 @@ If another environment is active in your shell, activate `./.venv` first or
 run the backend directly with `.venv/bin/uvicorn ...` to avoid `uv` creating
 `backend/.venv`.
 
+### Claude Code plugin
+
+Use PACT directly inside Claude Code. The **`pact-claude`** plugin adds a `/pact`
+command and a PreToolUse hook that checks native Bash/Read/Edit/Write/WebFetch
+calls against signed intent and capability policy, recording every decision in
+the PACT dashboard.
+
+```bash
+claude --plugin-dir ./plugins/pact-claude
+```
+
+See [plugins/pact-claude/README.md](plugins/pact-claude/README.md).
+
 ### Interactive agent (terminal UI)
 
 Run a real Claude/Gemini/Bedrock agent whose every tool call is enforced by
