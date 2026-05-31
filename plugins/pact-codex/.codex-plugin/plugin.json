@@ -1,0 +1,37 @@
+{
+  "name": "pact-codex",
+  "version": "0.1.2",
+  "description": "Use PACT from Codex with /pact permission checks and dashboard monitoring.",
+  "author": {
+    "name": "PACT"
+  },
+  "homepage": "https://github.com/ash1998/PACT",
+  "repository": "https://github.com/ash1998/PACT",
+  "license": "MIT",
+  "keywords": [
+    "pact",
+    "security",
+    "agents",
+    "provenance",
+    "capabilities",
+    "audit"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PACT for Codex",
+    "shortDescription": "Check Codex actions through PACT.",
+    "longDescription": "PACT for Codex adds a /pact workflow for starting audited PACT runs, checking proposed actions against signed intent and capability policy, refusing blocked actions, and monitoring decisions in the PACT dashboard.",
+    "developerName": "PACT",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "/pact start",
+      "/pact status",
+      "/pact replay"
+    ],
+    "brandColor": "#175CD3"
+  }
+}

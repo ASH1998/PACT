@@ -1,0 +1,30 @@
+# Default PACT grant for Codex.
+#
+# This grant is intentionally conservative: Codex can read normal repo files,
+# read web pages, summarize, and respond to the user. External writes, secret
+# reads, and shell execution are denied unless the operator supplies a wider
+# grant with /pact start --grant <path>.
+
+tools:
+  - file.read
+  - web.read
+  - summarize
+  - respond_to_user
+
+resource_scope:
+  file_path:
+    - "*.md"
+    - "docs/*"
+    - "backend/*"
+    - "frontend/*"
+    - "demo/*"
+    - "clients/*"
+    - "plugins/*"
+    - "examples/*"
+    - "protocol/*"
+  url:
+    - "*"
+  email_id:
+    - "*"
+  email_address: []
+  command: []

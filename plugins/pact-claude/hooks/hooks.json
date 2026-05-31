@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|MultiEdit|WebFetch|WebSearch|NotebookRead|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run_hook.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
