@@ -1,0 +1,20 @@
+{
+  "name": "pact",
+  "interface": {
+    "displayName": "PACT"
+  },
+  "plugins": [
+    {
+      "name": "pact-codex",
+      "source": {
+        "source": "local",
+        "path": "./plugins/pact-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

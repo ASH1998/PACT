@@ -1,0 +1,22 @@
+{
+  "name": "pact",
+  "owner": {
+    "name": "PACT"
+  },
+  "metadata": {
+    "displayName": "PACT",
+    "description": "PACT plugins for Claude Code: audited, permission-checked agent actions."
+  },
+  "plugins": [
+    {
+      "name": "pact-claude",
+      "description": "Run a PACT-protected Claude Code session. /pact starts an audited run and a PreToolUse hook checks native Bash/Read/Edit/Write/WebFetch calls against signed intent + capability policy, recording every decision in the PACT dashboard.",
+      "version": "0.1.0",
+      "category": "Developer Tools",
+      "source": {
+        "source": "relative-path",
+        "path": "./plugins/pact-claude"
+      }
+    }
+  ]
+}
