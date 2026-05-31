@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Shield, Play, Users, Zap } from 'lucide-react';
+import { Network, Play, Shield, Users, Zap } from 'lucide-react';
 
 const nav = [
   { to: '/', icon: Shield, label: 'Overview' },
+  { to: '/trust', icon: Network, label: 'Trust' },
   { to: '/runs', icon: Play, label: 'Runs' },
   { to: '/agents', icon: Users, label: 'Agents' },
 ];

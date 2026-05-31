@@ -1,0 +1,28 @@
+# Example PACT operator grant.
+#
+# A grant is the authority ceiling for an agent/session. It is controlled by the
+# operator, NOT the agent. The per-task intent can only narrow within it.
+#
+# Run with:  python3 pact_chat.py --grant examples/grant.acme.yaml
+#
+# This grant authorizes outbound email only to the acme.com domain, web reads
+# only to acme docs + python docs, and file reads only under the repo. Anything
+# outside these allowlists is blocked by PACT regardless of what the agent asks.
+
+# Tools the agent may ever use ("*" = all registered tools; or list explicitly).
+tools: "*"
+
+# Per-resource-type allowlists. Empty list = deny. "*" = allow all.
+resource_scope:
+  email_address:
+    - "*@acme.com"          # outbound email only to acme.com
+  email_id:
+    - "*"
+  url:
+    - "*.acme.com"
+    - "docs.python.org"
+  file_path:
+    - "*.md"                # docs/readmes
+    - "src/*"
+    - "backend/*"
+  command: []               # still no shell commands

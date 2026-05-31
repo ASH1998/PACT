@@ -18,7 +18,8 @@ from sqlalchemy.pool import StaticPool
 # Now import app modules — engine is created with the env var above
 import app.database as db_mod
 from app.database import Base
-from app.main import app
+import app.models  # noqa: F401 — register ALL models with Base.metadata (before app import)
+from app.main import app as fastapi_app  # avoid name collision with 'app' module
 
 # Replace engine with StaticPool so all async connections share the same
 # in-memory database (required for aiosqlite + in-memory)
@@ -50,6 +51,6 @@ async def setup_db():
 @pytest.fixture
 async def client(setup_db):
     """Async test client."""
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

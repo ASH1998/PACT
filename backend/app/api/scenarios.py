@@ -1,29 +1,14 @@
 """Scenario and Run API routes."""
 
-import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.run import Run
-from app.models.action import Action
-from app.models.policy_decision import PolicyDecision as PolicyDecisionModel
 from app.schemas import (
     ScenarioInfo,
     ScenarioRunResponse,
-    RunResponse,
-    ActionResponse,
-    ReplayResponse,
-    ReplayStep,
-    PolicyDecision,
-    ProvenanceContext,
-    ActionEnvelope,
-    ActionStatus,
     RunStatus,
-    Severity,
-    Decision,
 )
 from app.services.scenarios import list_scenarios, get_scenario
 

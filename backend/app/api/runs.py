@@ -13,13 +13,11 @@ from app.models.action import Action
 from app.models.policy_decision import PolicyDecision as PolicyDecisionModel
 from app.schemas import (
     RunResponse,
-    ActionResponse,
     ReplayResponse,
     ReplayStep,
     PolicyDecision,
     ProvenanceContext,
     ActionEnvelope,
-    ActionStatus,
     RunStatus,
     Severity,
     Decision,
@@ -31,6 +29,9 @@ router = APIRouter()
 @router.get("", response_model=list[RunResponse])
 async def list_runs(db: AsyncSession = Depends(get_db)):
     """List all agent runs."""
+    from app.services.ledger import LedgerService
+    ledger_svc = LedgerService()
+    
     result = await db.execute(select(Run).order_by(Run.started_at.desc()))
     runs = result.scalars().all()
 
@@ -52,6 +53,9 @@ async def list_runs(db: AsyncSession = Depends(get_db)):
             if pd:
                 max_risk = max(max_risk, pd.risk_score)
 
+        # Verify ledger chain
+        ledger_valid, _ = await ledger_svc.verify_chain(db, run.run_id)
+
         responses.append(RunResponse(
             run_id=run.run_id,
             agent_id=run.agent_id,
@@ -64,6 +68,7 @@ async def list_runs(db: AsyncSession = Depends(get_db)):
             allowed_actions=allowed,
             blocked_actions=blocked,
             max_risk_score=max_risk,
+            ledger_valid=ledger_valid,
         ))
 
     return responses
@@ -108,7 +113,27 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
                 "severity": pd.severity,
                 "reasons": json.loads(pd.reasons_json),
             } if pd else None,
+            "result": json.loads(a.result_json) if a.result_json else None,
         })
+
+    # Fetch intent contract for this run
+    from app.models.intent import Intent
+    intent_data = None
+    if actions:
+        intent_result = await db.execute(
+            select(Intent).where(Intent.intent_hash == actions[0].intent_hash)
+        )
+        intent = intent_result.scalar_one_or_none()
+        if intent:
+            intent_data = {
+                "intent_id": intent.intent_id,
+                "user_goal": intent.user_goal,
+                "allowed_actions": json.loads(intent.allowed_actions_json),
+                "forbidden_actions": json.loads(intent.forbidden_actions_json),
+                "risk_budget": intent.risk_budget,
+                "approval_required_for": json.loads(intent.approval_required_for_json),
+                "intent_hash": intent.intent_hash,
+            }
 
     return {
         "run_id": run.run_id,
@@ -119,6 +144,7 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
         "actions": action_list,
+        "intent_contract": intent_data,
     }
 
 
@@ -230,6 +256,7 @@ async def get_replay(run_id: str, db: AsyncSession = Depends(get_db)):
             parent_action_hash=a.parent_action_hash,
             signature_valid=sig_valid,
             chain_valid=chain_valid,
+            result=json.loads(a.result_json) if a.result_json else None,
         ))
 
     # Verify ledger integrity
@@ -250,7 +277,40 @@ async def get_replay(run_id: str, db: AsyncSession = Depends(get_db)):
 async def verify_ledger(run_id: str, db: AsyncSession = Depends(get_db)):
     """Verify the hash-chain integrity of a run's ledger."""
     from app.services.ledger import LedgerService
-
     svc = LedgerService()
     valid, issues = await svc.verify_chain(db, run_id)
     return {"run_id": run_id, "valid": valid, "issues": issues}
+
+
+@router.post("/{run_id}/tamper")
+async def tamper_ledger(run_id: str, db: AsyncSession = Depends(get_db)):
+    """Demo endpoint: corrupt one action's args_digest to show tamper detection."""
+    # Find the first action in this run
+    result = await db.execute(
+        select(Action).where(Action.run_id == run_id).order_by(Action.step_id).limit(1)
+    )
+    action = result.scalar_one_or_none()
+    if not action:
+        raise HTTPException(status_code=404, detail="No actions found for this run")
+
+    # Corrupt the args_digest
+    original = action.args_digest
+    action.args_digest = "TAMPERED_" + original
+    await db.commit()
+
+    # Now verify — should fail
+    from app.services.ledger import LedgerService
+    svc = LedgerService()
+    valid, issues = await svc.verify_chain(db, run_id)
+
+    # Restore the original
+    action.args_digest = original
+    await db.commit()
+
+    return {
+        "run_id": run_id,
+        "tampered_field": "args_digest",
+        "original_value": original[:20] + "..." if len(original) > 20 else original,
+        "ledger_valid_after_tamper": valid,
+        "issues": issues,
+    }

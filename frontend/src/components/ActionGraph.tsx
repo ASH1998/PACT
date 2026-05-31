@@ -94,7 +94,7 @@ export default function ActionGraph({ run }: Props) {
         id: `e-${source}-${a.step_id}`,
         source,
         target: `action-${a.step_id}`,
-        label: a.status,
+        label: 'calls_tool',
         labelStyle: { fill: color, fontSize: 9 },
         style: { stroke: color },
         markerEnd: { type: MarkerType.ArrowClosed, color },
@@ -151,6 +151,39 @@ export default function ActionGraph({ run }: Props) {
         });
       }
 
+      // Uses-data edge (from action to its own provenance node)
+      if (a.provenance.uses_data.length > 0 && a.provenance.influenced_by.length > 0) {
+        const provId = `prov-${a.step_id}`;
+        e.push({
+          id: `e-action-${a.step_id}-uses-data`,
+          source: `action-${a.step_id}`,
+          target: provId,
+          label: 'uses_data',
+          labelStyle: { fill: '#3b82f6', fontSize: 8 },
+          style: { stroke: '#3b82f655', strokeDasharray: '3 3' },
+        });
+      }
+
+      // Inter-step causal edges (taint propagation)
+      if (a.provenance.influenced_by_sources) {
+        for (const src of a.provenance.influenced_by_sources) {
+          if (src.source_step >= 0 && src.source_step !== a.step_id) {
+            const sourceActionId = `action-${src.source_step}`;
+            if (n.some((node) => node.id === sourceActionId)) {
+              e.push({
+                id: `e-taint-${src.source_step}-${a.step_id}-${src.label}`,
+                source: sourceActionId,
+                target: `action-${a.step_id}`,
+                label: src.label,
+                labelStyle: { fill: '#ef4444', fontSize: 8 },
+                style: { stroke: '#ef444455', strokeDasharray: '5 5' },
+                markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' },
+              });
+            }
+          }
+        }
+      }
+
       // Policy decision node
       if (a.policy_decision) {
         const pdId = `pd-${a.step_id}`;
@@ -174,7 +207,7 @@ export default function ActionGraph({ run }: Props) {
           id: `e-action-${a.step_id}-${pdId}`,
           source: `action-${a.step_id}`,
           target: pdId,
-          label: a.policy_decision.decision.toLowerCase(),
+          label: a.policy_decision.decision === 'BLOCK' ? 'blocked_by' : 'allowed_by',
           labelStyle: { fill: pdColor, fontSize: 8 },
           style: { stroke: `${pdColor}55` },
         });

@@ -172,11 +172,9 @@ Labels:
 
 | Label | Meaning |
 |---|---|
-| `trusted.system` | System policy or trusted configuration |
 | `trusted.user` | Direct user instruction |
 | `untrusted.email` | Email body or attachment content |
 | `untrusted.web` | Webpage content |
-| `untrusted.tool_metadata` | External tool metadata |
 | `agent.generated` | Agent-generated intermediate output |
 | `internal.data` | Internal API or non-secret file data |
 | `secret` | Credentials, API keys, tokens, private files |

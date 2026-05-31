@@ -3,7 +3,13 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import BaseModel
+
+_repo_root = Path(__file__).resolve().parents[2]
+_backend_root = Path(__file__).resolve().parents[1]
+load_dotenv(_repo_root / ".env", override=False)
+load_dotenv(_backend_root / ".env", override=False)
 
 
 class Settings(BaseModel):

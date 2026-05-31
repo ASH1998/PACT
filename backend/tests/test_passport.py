@@ -86,7 +86,7 @@ async def test_create_passport_stores_in_db(passport_service, setup_db):
     """create_passport persists the agent in the database and get_passport retrieves it."""
     from app.database import async_session
     async with async_session() as db:
-        result = await passport_service.create_passport(
+        await passport_service.create_passport(
             db=db,
             agent_id="agent_stored",
             owner="test-owner",

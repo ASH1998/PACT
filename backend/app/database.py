@@ -1,5 +1,5 @@
 """Database engine and session management."""
-
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -21,10 +21,27 @@ async def get_db() -> AsyncSession:
         yield session
 
 
+# Lightweight additive migrations for existing SQLite DBs (no Alembic yet).
+# create_all() creates missing tables but never adds columns to existing ones,
+# so each new column is added idempotently here. Each runs in its own
+# transaction so an "already exists" failure doesn't poison the others.
+_COLUMN_MIGRATIONS = [
+    ("actions", "result_json", "TEXT DEFAULT NULL"),
+    ("intents", "resource_scope_json", "TEXT NOT NULL DEFAULT '{}'"),
+]
+
+
 async def init_db() -> None:
-    """Create all tables."""
+    """Create all tables and apply additive column migrations."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    for table, column, coldef in _COLUMN_MIGRATIONS:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coldef}"))
+        except Exception:
+            pass  # column already exists
 
 
 async def close_db() -> None:

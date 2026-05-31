@@ -49,3 +49,11 @@ app.include_router(tools.router, prefix="/tools", tags=["Tools"])
 app.include_router(scenarios.router, prefix="/scenarios", tags=["Scenarios"])
 app.include_router(runs.router, prefix="/runs", tags=["Runs"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+
+# Production v1 API surface
+from app.api.v1 import v1_router
+app.include_router(v1_router, prefix="/v1", tags=["V1 API"])
+
+# Provider proxy endpoints
+from app.api.proxy import router as proxy_router
+app.include_router(proxy_router, tags=["Proxy"])

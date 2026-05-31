@@ -1,12 +1,23 @@
 # PACT Week-Wise Build Plan
 
-## Timeline
+> **Historical build record.** This is the original two-week plan that produced the
+> v0.0.0 protocol core (passports, intents, capabilities, envelopes, gateway,
+> provenance, policy, ledger, SOC dashboard, replay). It is kept for context.
+>
+> That foundation shipped. PACT is now a product, not a demo, and has moved past
+> this plan — v0.0.1 added structural least-privilege (operator grants + resource
+> scope), human approval, configurable policy, and framework adapters.
+>
+> For **current status** see [`progress.md`](progress.md); for **forward work**
+> (object-level taint, identity/authz + API auth, a real policy engine,
+> Postgres/Alembic, SDK + MCP gateway) see [`road_to_prod.md`](road_to_prod.md).
+> The day-by-day schedule below is no longer the source of truth for priorities.
+
+## Timeline (original)
 
 Total time: **2 weeks**
 
-Goal: build a working, demo-ready version of **PACT — Provenance-Aware Capability Tokens for AI Agents**.
-
-The project should not look like a simple wrapper. By the end of two weeks, it should feel like a real protocol layer with cryptographic identity, intent-bound permissions, provenance tracking, policy decisions, a tamper-evident ledger, SOC visuals, and attack replay.
+Goal: build a working version of **PACT — Provenance-Aware Capability Tokens for AI Agents** — a real protocol layer with cryptographic identity, intent-bound permissions, provenance tracking, policy decisions, a tamper-evident ledger, SOC visuals, and attack replay (delivered as v0.0.0).
 
 ---
 

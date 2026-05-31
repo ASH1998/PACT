@@ -1,7 +1,6 @@
 from __future__ import annotations
 """Policy Service — evaluate action envelopes against PACT security rules."""
 
-import json
 
 from app.schemas import Decision, Severity, PolicyDecision
 
@@ -59,6 +58,8 @@ class PolicyService:
         signature_valid: bool = True,
         capability_valid: bool = True,
         capability_reason: str = "Valid",
+        resource: str = "",
+        resource_in_scope: bool = True,
     ) -> PolicyDecision:
         """Evaluate an action and return a policy decision."""
         reasons: list[str] = []
@@ -66,6 +67,7 @@ class PolicyService:
         has_invalid_signature = False
         has_capability_mismatch = False
         has_intent_mismatch = False
+        has_resource_violation = not resource_in_scope
 
         # R1: Passport
         if not passport_valid:
@@ -118,6 +120,10 @@ class PolicyService:
         if tool == "shell.execute_mock":
             reasons.append("Shell execution requires human approval")
 
+        # R12: requested resource outside operator-authorized scope
+        if has_resource_violation:
+            reasons.append(f"Resource '{resource}' is outside the authorized scope for {tool}")
+
         # Compute risk score
         risk_score, severity = compute_risk_score(
             has_invalid_passport=has_invalid_passport,
@@ -129,12 +135,19 @@ class PolicyService:
             has_secret_usage=has_secret_usage,
         )
 
+        if has_resource_violation:
+            risk_score = max(risk_score, 70)
+            if severity not in (Severity.HIGH, Severity.CRITICAL):
+                severity = Severity.HIGH
+
         # Determine decision
         if has_invalid_passport or has_invalid_signature:
             decision = Decision.BLOCK
         elif has_capability_mismatch:
             decision = Decision.BLOCK
         elif has_intent_mismatch:
+            decision = Decision.BLOCK
+        elif has_resource_violation:
             decision = Decision.BLOCK
         elif "untrusted.email" in influenced_by and has_external_write:
             decision = Decision.BLOCK

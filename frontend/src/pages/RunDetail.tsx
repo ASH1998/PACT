@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, ExternalLink, Activity } from 'lucide-react';
-import { getRun, RunDetail as RunDetailType, ActionData } from '../api/client';
+import { getRun, RunDetail as RunDetailType, ActionData, verifyLedger, LedgerVerification, tamperLedger, TamperResult } from '../api/client';
 import ActionGraph from '../components/ActionGraph';
 
 export default function RunDetail() {
@@ -11,6 +11,8 @@ export default function RunDetail() {
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showGraph, setShowGraph] = useState(false);
+  const [ledger, setLedger] = useState<LedgerVerification | null>(null);
+  const [tamperResult, setTamperResult] = useState<TamperResult | null>(null);
 
   useEffect(() => {
     if (!runId) return;
@@ -18,6 +20,7 @@ export default function RunDetail() {
       .then(setRun)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
+    verifyLedger(runId).then(setLedger).catch(() => {});
   }, [runId]);
 
   if (loading) return <div className="text-gray-400 text-sm p-8">Loading run…</div>;
@@ -37,6 +40,24 @@ export default function RunDetail() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {ledger && (
+            <span className={`text-xs px-2 py-1 rounded ${ledger.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
+              {ledger.valid ? '✓ Ledger Verified' : '✗ Ledger Invalid'}
+            </span>
+          )}
+          <button
+            onClick={async () => {
+              try {
+                const result = await tamperLedger(runId!);
+                setTamperResult(result);
+              } catch (e) {
+                console.error('Tamper failed', e);
+              }
+            }}
+            className="text-xs px-2 py-1 rounded bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors"
+          >
+            🔓 Tamper Ledger (Demo)
+          </button>
           <Link
             to={`/runs/${run.run_id}/replay`}
             className="flex items-center gap-1.5 text-xs bg-pact-accent/15 text-pact-accent px-3 py-1.5 rounded hover:bg-pact-accent/25 transition-colors"
@@ -59,6 +80,44 @@ export default function RunDetail() {
         <div className="soc-card">
           <div className="text-xs text-gray-500 mb-1">User Goal</div>
           <div className="text-sm text-gray-200">{run.user_goal}</div>
+        </div>
+      )}
+
+      {run.intent_contract && (
+        <div className="soc-card">
+          <h2 className="text-sm font-medium mb-3 text-gray-300">Intent Contract</h2>
+          <div className="grid grid-cols-3 gap-4 text-xs">
+            <div>
+              <div className="text-gray-500 mb-1">Allowed Actions</div>
+              <div className="flex flex-wrap gap-1">
+                {run.intent_contract.allowed_actions.map((act) => (
+                  <span key={act} className="px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-mono">{act}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500 mb-1">Forbidden Actions</div>
+              <div className="flex flex-wrap gap-1">
+                {run.intent_contract.forbidden_actions.map((act) => (
+                  <span key={act} className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-mono">{act}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500 mb-1">Risk Budget</div>
+              <span className="font-mono text-gray-300">{run.intent_contract.risk_budget}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tamperResult && (
+        <div className="soc-card border border-red-500/50">
+          <div className="text-xs text-red-400 font-medium mb-2">⚠️ Ledger Tampered</div>
+          <div className="text-xs text-gray-300">Valid: {tamperResult.ledger_valid_after_tamper ? '✓' : '✗ INVALID'}</div>
+          {tamperResult.issues.map((issue, i) => (
+            <div key={i} className="text-xs text-red-400 mt-1">{issue}</div>
+          ))}
         </div>
       )}
 
@@ -146,8 +205,8 @@ function ActionRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-pact-bg/60 px-6 py-4 border-b border-pact-border/30">
-            <div className="grid grid-cols-3 gap-6 text-xs">
+           <td colSpan={6} className="bg-pact-bg/60 px-6 py-4 border-b border-pact-border/30">
+            <div className="grid grid-cols-2 gap-6 text-xs">
               <div>
                 <div className="text-gray-500 mb-1 font-medium">Policy Decision</div>
                 {a.policy_decision ? (
@@ -177,22 +236,48 @@ function ActionRow({
                   <div>Uses data: <span className="text-gray-300">{a.provenance.uses_data.join(', ') || '—'}</span></div>
                   <div>Side effect: <span className="text-gray-300">{a.provenance.side_effect ?? '—'}</span></div>
                 </div>
+                <div className="mt-3">
+                  <div className="text-gray-500 mb-1 font-medium">Provenance Sources</div>
+                  {a.provenance.influenced_by_sources?.length > 0 ? (
+                    <div className="space-y-1">
+                      {a.provenance.influenced_by_sources.map((src, i) => (
+                        <div key={i} className="text-xs">
+                          <span className={src.label.startsWith('untrusted') ? 'text-red-400' : src.label === 'secret' ? 'text-orange-400' : 'text-green-400'}>{src.label}</span>
+                          <span className="text-gray-500"> ← step {src.source_step} ({src.source_tool}{src.source_resource ? `: ${src.source_resource}` : ''})</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-500 text-xs">No source data</span>
+                  )}
+                </div>
               </div>
 
               <div>
                 <div className="text-gray-500 mb-1 font-medium">Envelope</div>
-                <pre className="text-[10px] text-gray-400 bg-pact-surface rounded p-2 overflow-auto max-h-32">
-                  {JSON.stringify(
-                    {
-                      action_hash: a.action_hash,
-                      intent_hash: a.intent_hash,
-                      args_digest: a.args_digest,
-                      parent_action_hash: a.parent_action_hash,
-                    },
-                    null,
-                    2,
-                  )}
+                <pre className="text-[10px] text-gray-400 bg-pact-surface rounded p-2 overflow-auto max-h-40">
+                  {JSON.stringify({
+                    action_hash: a.action_hash,
+                    intent_hash: a.intent_hash,
+                    args_digest: a.args_digest,
+                    parent_action_hash: a.parent_action_hash,
+                    agent_id: a.agent_id,
+                    tool: a.tool,
+                    status: a.status,
+                    created_at: a.created_at,
+                  }, null, 2)}
                 </pre>
+              </div>
+
+              <div>
+                <div className="text-gray-500 mb-1 font-medium">Tool Result</div>
+                {a.result ? (
+                  <pre className="text-[10px] text-gray-400 bg-pact-surface rounded p-2 overflow-auto max-h-40">
+                    {JSON.stringify(a.result, null, 2)}
+                  </pre>
+                ) : (
+                  <span className="text-gray-500 text-xs">No result (blocked or no tool)</span>
+                )}
               </div>
             </div>
           </td>

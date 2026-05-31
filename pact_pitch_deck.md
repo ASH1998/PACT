@@ -109,11 +109,13 @@ Every action must prove:
 
 1. **Identity** — which agent is acting?
 2. **Intent** — what did the user originally ask?
-3. **Capability** — is this tool allowed right now?
-4. **Provenance** — what data influenced this action?
-5. **Traceability** — where does this action sit in the run history?
+3. **Authority** — is this tool *and this resource* within the operator's grant?
+4. **Capability** — is this tool allowed right now?
+5. **Provenance** — what data influenced this action?
+6. **Traceability** — where does this action sit in the run history?
 
 If the envelope is invalid, unsafe, or misaligned, the tool refuses to execute.
+Enforcement is structural — PACT never relies on recognizing a bad string.
 
 Visual idea:
 
@@ -136,8 +138,9 @@ Speaker note:
 |---|---|
 | Agent Passport | Verifies agent identity and ownership |
 | Intent Contract | Locks actions to the user’s original goal |
-| Capability Token | Grants short-lived, scoped permissions |
-| Provenance Label | Tracks trusted, untrusted, secret, and generated data |
+| Operator Grant + Resource Scope | Deny-by-default ceiling on tools and resources the agent can't widen |
+| Capability Token | Grants short-lived, scoped, intent-bound permissions |
+| Provenance Label | Tracks trusted, untrusted, secret, and generated data, and propagates taint |
 | Action Envelope | Signs every tool call with security context |
 | Tamper-Evident Ledger | Creates a verifiable run history |
 
@@ -196,17 +199,22 @@ Speaker note:
 ```json
 {
   "protocol": "PACT/0.1",
+  "run_id": "run_demo_001",
+  "step_id": 1,
   "agent_id": "email-agent-001",
   "tool": "email.send",
-  "intent_hash": "sha256:...",
-  "capability_token_hash": "sha256:...",
+  "args": {"to": "attacker@gmail.com", "subject": "Stolen", "body": "..."},
+  "args_digest": "sha256:a1b2c3...",
+  "intent_hash": "sha256:d4e5f6...",
+  "capability_token_hash": "sha256:g7h8i9...",
   "provenance": {
-    "influenced_by": ["untrusted.email"],
-    "uses_data": ["secret"],
+    "influenced_by": ["untrusted.email", "agent.generated"],
+    "uses_data": ["untrusted.email"],
     "side_effect": "external_write"
   },
   "parent_action_hash": "sha256:previous_step",
-  "agent_signature": "..."
+  "timestamp": "2026-05-24T10:01:12Z",
+  "agent_signature": "base64-ed25519-signature..."
 }
 ```
 
@@ -450,7 +458,8 @@ Speaker note:
 | App-specific wrapper | Protocol-style envelope |
 | Logs after execution | Enforces before execution |
 | Static permissions | Intent-bound capability tokens |
-| Detects bad text | Tracks data provenance |
+| Agent decides its own scope | Operator grant the agent can't widen |
+| Detects bad *strings* | Enforces structurally via data flow + scope |
 | Observability dashboard | Tamper-evident action ledger |
 
 Speaker note:
@@ -487,32 +496,32 @@ Speaker note:
 
 # Slide 16 — Roadmap
 
-## From hackathon prototype to real protocol
+## From protocol to production
 
-### MVP
+### Shipped (v0.0.1)
 
 - Signed agent passports
-- Intent contracts
+- Intent contracts + operator grants + resource scope
 - Capability tokens
 - Action envelopes
-- Provenance labels
-- Policy engine
-- SOC dashboard
-- Attack replay
+- Provenance labels + taint propagation
+- Policy engine (R1–R12), configurable via YAML/DB
+- Human approval flow
+- SOC dashboard + attack replay
+- Framework adapters (LangChain / LangGraph); multi-provider CLI
 
 ### Next
 
-- MCP adapter
-- Real Gmail/Drive/Slack tools
-- Formal policy language
-- Verifiable credentials for agents
-- Multi-agent trust handshake
-- Exportable compliance reports
-- Open-source PACT schema
+- Object/field-level taint (replace run-global provenance)
+- Authority-issued identity, tenant scoping, RBAC, API authentication
+- Formal policy engine (OPA/Rego or Cedar) with shadow/test mode
+- Postgres + Alembic; horizontal scale; observability
+- SDK + MCP gateway for drop-in adoption
+- Exportable compliance reports; open PACT schema
 
 Speaker note:
 
-“The hackathon version proves the model. The next step is integrating PACT with real tool ecosystems.”
+“v0.0.1 enforces the model end-to-end. The roadmap is about scale, identity, and drop-in adoption — not proving the idea.”
 
 ---
 
@@ -527,6 +536,7 @@ Even when an agent is manipulated, tools remain protected because every action m
 ```text
 Identity
 Intent
+Authority (operator grant + resource scope)
 Capability
 Provenance
 Trace integrity
@@ -552,9 +562,12 @@ Prompt detection can miss subtle attacks. PACT tracks whether untrusted content 
 
 Logs are after-the-fact. PACT enforces before the tool executes.
 
-## Why mock tools?
+## Are the tools real?
 
-The project is about the security protocol. Mock tools make the demo controlled and repeatable. Real integrations can be added later.
+Yes — the interactive CLI performs real web reads, file reads, email, and shell
+execution under PACT enforcement, alongside deterministic reference scenarios for
+repeatable testing. PACT is provider- and tool-agnostic; the security layer is the
+product, and adapters (LangChain/LangGraph today, MCP next) make it drop-in.
 
 ## Is this only for one agent?
 

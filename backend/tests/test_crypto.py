@@ -1,6 +1,5 @@
 """Test: crypto service — Ed25519 keys, signing, verification, hashing."""
 
-import pytest
 from app.crypto import generate_keypair, sign, verify, canonical_json, hash_payload, hash_bytes
 
 
@@ -73,3 +72,21 @@ class TestHashing:
         result = hash_bytes(b"hello")
         assert result.startswith("sha256:")
         assert len(result) == 71
+
+
+class TestIssuerKeyPermissions:
+    def test_issuer_key_file_permissions(self):
+        """Verify issuer keys file has restrictive permissions (0o600)."""
+        import os
+        from pathlib import Path
+        keys_file = Path(__file__).parent.parent / "keys" / "issuer_keys.json"
+        if keys_file.exists():
+            mode = oct(os.stat(keys_file).st_mode & 0o777)
+            assert mode == '0o600', f"Issuer keys file has permissions {mode}, expected 0o600"
+
+    def test_issuer_keys_loadable(self):
+        """Verify issuer keys can be loaded."""
+        from app.crypto.issuer import ISSUER_PRIVATE_KEY, ISSUER_PUBLIC_KEY
+        assert ISSUER_PRIVATE_KEY, "Issuer private key should not be empty"
+        assert ISSUER_PUBLIC_KEY, "Issuer public key should not be empty"
+        assert len(ISSUER_PRIVATE_KEY) > 20, "Issuer private key should be base64-encoded"

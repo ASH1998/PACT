@@ -11,6 +11,7 @@ import {
   Shield,
   ChevronDown,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { getReplay, getRun, ReplayData, ReplayStepData, RunDetail as RunDetailType } from '../api/client';
 import ActionGraph from '../components/ActionGraph';
@@ -96,6 +97,9 @@ export default function Replay() {
           {current + 1} / {total} steps
         </div>
       </div>
+
+      {/* Protocol Story */}
+      <ProtocolStory data={data} />
 
       {/* Action Graph (collapsible) */}
       {runDetail && (
@@ -285,6 +289,18 @@ function StepDetail({ step }: { step: ReplayStepData }) {
         )}
       </div>
 
+      {/* Tool Result */}
+      <div>
+        <div className="text-xs text-gray-500 mb-1 font-medium">Tool Result</div>
+        {step.result ? (
+          <pre className="text-[10px] text-gray-400 bg-pact-bg rounded p-3 overflow-auto max-h-48 font-mono">
+            {JSON.stringify(step.result, null, 2)}
+          </pre>
+        ) : (
+          <span className="text-xs text-gray-500">No result (blocked or no tool)</span>
+        )}
+      </div>
+
       {/* Envelope JSON (expandable) */}
       <div>
         <button
@@ -303,6 +319,186 @@ function StepDetail({ step }: { step: ReplayStepData }) {
     </div>
   );
 }
+
+/* ---------- Protocol Story ---------- */
+
+interface StoryEvent {
+  id: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  detail?: string;
+  tags?: string[];
+  tint: 'green' | 'red' | 'yellow' | 'blue' | 'gray';
+}
+
+const ATTACK_KEYWORDS = ['malicious', 'injection', 'fake', 'expired', 'secret', 'webpage'];
+
+function isAttackScenario(name: string | null): boolean {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return ATTACK_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function deriveStoryEvents(data: ReplayData): StoryEvent[] {
+  const events: StoryEvent[] = [];
+  let evtIdx = 0;
+
+  const makeId = () => `story-${evtIdx++}`;
+
+  // 1. User Intent
+  events.push({
+    id: makeId(),
+    icon: Shield,
+    title: 'User Intent',
+    detail: data.user_goal ?? '—',
+    tint: 'blue',
+  });
+
+  // 2. Per-step events
+  for (const step of data.steps) {
+    // Capability token (check envelope for capability_token_hash)
+    const envelope = step.envelope as Record<string, unknown>;
+    if (envelope?.capability_token_hash) {
+      events.push({
+        id: makeId(),
+        icon: CheckCircle,
+        title: `Capability token issued for ${step.tool}`,
+        tint: 'green',
+      });
+    }
+
+    // Tool execution
+    const provLabels = [
+      ...(step.provenance.uses_data ?? []),
+      ...(step.provenance.influenced_by ?? []),
+    ];
+    events.push({
+      id: makeId(),
+      icon: Shield,
+      title: `${step.tool} executed`,
+      tags: provLabels.length ? provLabels : undefined,
+      tint: 'gray',
+    });
+
+    // Untrusted data labels
+    const untrustedLabels = [
+      ...(step.provenance.uses_data ?? []),
+      ...(step.provenance.influenced_by ?? []),
+    ].filter((l: string) => l.startsWith('untrusted.'));
+    if (untrustedLabels.length > 0) {
+      events.push({
+        id: makeId(),
+        icon: AlertTriangle,
+        title: `Data labeled ${untrustedLabels.join(', ')}`,
+        tint: 'yellow',
+      });
+    }
+
+    // Policy decision
+    const pd = step.policy_decision;
+    const isBlocked = pd.decision === 'BLOCK';
+    const firstReason = pd.reasons?.[0];
+    events.push({
+      id: makeId(),
+      icon: isBlocked ? XCircle : CheckCircle,
+      title: `${pd.decision}: ${step.tool}`,
+      detail: firstReason,
+      tint: isBlocked ? 'red' : 'green',
+    });
+  }
+
+  // 3. Ledger verification
+  events.push({
+    id: makeId(),
+    icon: data.ledger_valid ? CheckCircle : XCircle,
+    title: `Ledger ${data.ledger_valid ? 'verified' : 'NOT verified'}`,
+    detail: data.ledger_valid ? 'All hashes intact' : 'Chain integrity failure',
+    tint: data.ledger_valid ? 'green' : 'red',
+  });
+
+  return events;
+}
+
+function ProtocolStory({ data }: { data: ReplayData }) {
+  const isAttack = isAttackScenario(data.scenario_name);
+  const [expanded, setExpanded] = useState(isAttack);
+  const events = deriveStoryEvents(data);
+
+  const tintClasses: Record<string, { dot: string; bg: string; text: string }> = {
+    green: { dot: 'bg-green-400', bg: 'bg-green-400/5', text: 'text-green-400' },
+    red: { dot: 'bg-red-400', bg: 'bg-red-400/5', text: 'text-red-400' },
+    yellow: { dot: 'bg-yellow-400', bg: 'bg-yellow-400/5', text: 'text-yellow-400' },
+    blue: { dot: 'bg-blue-400', bg: 'bg-blue-400/5', text: 'text-blue-400' },
+    gray: { dot: 'bg-gray-500', bg: '', text: 'text-gray-300' },
+  };
+
+  return (
+    <div className="soc-card">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left text-xs text-pact-accent hover:underline flex items-center gap-1"
+      >
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        <Shield className="w-3.5 h-3.5" />
+        <span className="font-medium">Protocol Story</span>
+        {data.scenario_name && (
+          <span className="text-gray-500 ml-1">— {data.scenario_name}</span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 pl-4">
+          <div className="relative">
+            {/* Vertical line */}
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-pact-border/40" />
+
+            <div className="space-y-3">
+              {events.map((evt) => {
+                const tc = tintClasses[evt.tint] ?? tintClasses.gray;
+                const Icon = evt.icon;
+                return (
+                  <div key={evt.id} className="relative flex items-start gap-3">
+                    {/* Dot */}
+                    <div className={`relative z-10 w-[15px] h-[15px] rounded-full border-2 border-pact-bg ${tc.dot} shrink-0 mt-0.5`} />
+
+                    {/* Content */}
+                    <div className={`flex-1 min-w-0 rounded px-2.5 py-1.5 ${tc.bg}`}>
+                      <div className="flex items-center gap-1.5">
+                        <Icon className={`w-3.5 h-3.5 ${tc.text} shrink-0`} />
+                        <span className={`text-xs font-medium ${tc.text}`}>{evt.title}</span>
+                      </div>
+                      {evt.detail && (
+                        <div className="text-[11px] text-gray-400 mt-0.5 ml-5">{evt.detail}</div>
+                      )}
+                      {evt.tags && evt.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1 ml-5">
+                          {evt.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                tag.startsWith('untrusted.')
+                                  ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20'
+                                  : 'bg-pact-surface text-gray-400 border border-pact-border/30'
+                              }`}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Helpers ---------- */
 
 function native_map(narrative: string[]) {
   return narrative.map((event, i) => {

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="220" viewBox="0 0 760 220" role="img" aria-label="PACT — Provenance-Aware Capability Tokens for AI Agents">
+  <defs>
+    <linearGradient id="pact" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="55%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="756" height="216" rx="20" fill="#0b1020" stroke="#1f2a44" stroke-width="2"/>
+  <text x="384" y="128" text-anchor="middle" font-family="'SFMono-Regular','Consolas','Menlo',monospace" font-size="120" font-weight="800" letter-spacing="16" fill="url(#pact)">PACT</text>
+  <rect x="250" y="150" width="260" height="3" rx="1.5" fill="#22d3ee" opacity="0.7"/>
+  <text x="382" y="182" text-anchor="middle" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="15.5" font-weight="500" letter-spacing="3" fill="#9fb3c8">PROVENANCE-AWARE CAPABILITY TOKENS FOR AI AGENTS</text>
+</svg>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getRuns, RunSummary } from '../api/client';
 
@@ -8,12 +8,21 @@ export default function Runs() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const fetchRuns = useCallback(() => {
     getRuns()
-      .then(setRuns)
+      .then((data) => {
+        setRuns(data);
+        setError('');
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchRuns();
+    const id = window.setInterval(fetchRuns, 3000);
+    return () => window.clearInterval(id);
+  }, [fetchRuns]);
 
   if (loading) return <div className="text-gray-400 text-sm p-8">Loading runs…</div>;
   if (error) return <div className="text-red-400 text-sm p-8">Error: {error}</div>;
@@ -44,8 +53,8 @@ export default function Runs() {
             </thead>
             <tbody>
               {runs.map((r) => {
-                const severity = r.max_risk_score >= 75 ? 'critical'
-                  : r.max_risk_score >= 50 ? 'high'
+                const severity = r.max_risk_score >= 90 ? 'critical'
+                  : r.max_risk_score >= 60 ? 'high'
                   : r.max_risk_score >= 25 ? 'medium'
                   : 'low';
 
