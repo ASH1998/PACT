@@ -1,0 +1,1 @@
+{"run_id":"run_2585d1af8803","agent_id":"pact-cli-d36003cd","scenario_name":"interactive_cli","user_goal":"Assist the user with web, email, file, summarization, and safe diagnostic tasks.","status":"completed","started_at":"2026-05-30T15:26:54.459825","completed_at":"2026-05-30T15:27:04.949133","actions":[],"intent_contract":null}
