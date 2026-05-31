@@ -6,6 +6,38 @@
 
 ---
 
+## Current API Surfaces
+
+PACT currently exposes two API layers:
+
+- Legacy/demo endpoints such as `/agents`, `/intents`, `/tools`, `/scenarios`,
+  `/runs`, and `/dashboard`. These power the SOC dashboard and deterministic
+  demo scenarios.
+- `/v1` endpoints for the newer production-oriented surface: runs, actions,
+  gateway execution, tool metadata, policies, approvals, intents,
+  capabilities, and agent registration.
+
+The frontend currently uses the legacy/dashboard routes. The Go TUI uses the
+newer `/v1` gateway path: it registers an agent, creates intents/runs, signs
+Action Envelopes locally, submits actions to PACT for a decision, executes
+allowed tools locally, and attaches results back to the run.
+
+Provider proxy routes are also mounted:
+
+```text
+POST /v1/proxy/chat
+POST /v1/proxy/gemini/{model_path}
+POST /v1/proxy/bedrock/converse
+```
+
+Gemini and OpenAI-compatible backend proxy providers make real HTTP calls when
+configured. The interactive Go TUI and `pact_chat.py` also support real AWS
+Bedrock Converse via SigV4 signing. The backend Bedrock proxy adapter currently
+normalizes Bedrock requests/responses but returns a mock response from
+`backend/app/adapters/providers/bedrock.py`.
+
+---
+
 ## Table of Contents
 
 - [Health](#health)

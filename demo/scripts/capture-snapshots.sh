@@ -5,7 +5,8 @@
 # demo/public/data/. Run this whenever you want the demo to reflect newer
 # backend data. Requires the backend running locally (default :8000).
 #
-#   cd backend && uvicorn app.main:app --port 8000   # in another terminal
+#   source .venv/bin/activate
+#   uv run --project backend --active uvicorn app.main:app --app-dir backend --port 8000
 #   ./demo/scripts/capture-snapshots.sh
 #
 set -euo pipefail

@@ -79,20 +79,26 @@ authority and data-flow boundaries don't depend on the specific strings.
 
 **Prerequisites:** Python 3.10+, Node.js 18+.
 
+Backend installation steps are documented in [INSTALL.md](INSTALL.md).
+
 ```bash
 # Backend (API at http://localhost:8000, docs at /docs)
-cd backend
-python -m venv venv && source venv/bin/activate    # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload --port 8000
+uv venv .venv
+source .venv/bin/activate                          # Windows: .venv\Scripts\activate
+uv sync --project backend --active --extra dev --link-mode=copy
+cp backend/.env.example backend/.env
+uv run --project backend --active uvicorn app.main:app --app-dir backend --reload --port 8000
 
 # Frontend (dashboard at http://localhost:5173)
 cd frontend && npm install && npm run dev
 
 # Tests
-cd backend && pytest -q
+uv run --project backend --active pytest -q -c backend/pyproject.toml backend/tests
 ```
+
+If another environment is active in your shell, activate `./.venv` first or
+run the backend directly with `.venv/bin/uvicorn ...` to avoid `uv` creating
+`backend/.venv`.
 
 ### Interactive agent (terminal UI)
 

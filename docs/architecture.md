@@ -13,9 +13,10 @@ User → Agent Runtime → PACT Envelope → Tool Gateway → Policy Engine → 
 3. Verify agent passport (identity, expiry)
 4. Load intent contract (allowed/forbidden actions)
 5. Validate capability token (scope, expiry, uses)
-6. Evaluate policy rules R1–R10 (provenance + risk)
-7. Record action to hash-chain ledger
-8. Decision: ALLOW / BLOCK / REQUIRE_APPROVAL
+6. Check operator resource scope (R12)
+7. Evaluate policy rules R1–R12 (identity, intent, capability, provenance, approval)
+8. Record action to hash-chain ledger
+9. Decision: ALLOW / BLOCK / REQUIRE_APPROVAL
 
 ## Protocol Primitives
 
@@ -23,8 +24,9 @@ User → Agent Runtime → PACT Envelope → Tool Gateway → Policy Engine → 
 |---|---|---|
 | Agent Passport | Identity proof | Ed25519 keypair, expiry |
 | Intent Contract | Goal lock | Allowed actions list |
-| Capability Token | Scoped permission | Scope · expiry · uses |
-| Provenance Labels | Data taint tracking | Source · transform chain |
+| Operator Grant | Authority ceiling | Allowed tools and resource scope |
+| Capability Token | Scoped permission | Tool · resource · expiry · uses |
+| Provenance Labels | Data taint tracking | Trusted · untrusted · secret · generated |
 | Action Envelope | Verifiable tool call | Signed request payload |
 | Hash-Chain Ledger | Tamper evidence | Append-only audit trail |
 
@@ -38,6 +40,7 @@ User → Agent Runtime → PACT Envelope → Tool Gateway → Policy Engine → 
 
 - **SOC Dashboard**: Metrics, trust scores, blocked actions
 - **Replay Timeline**: Step-through attack visualization
+- **Approval Flow**: Pending action records and resume/deny paths for sensitive actions
 
 ## Visual
 

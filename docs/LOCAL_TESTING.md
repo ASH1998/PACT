@@ -1,18 +1,27 @@
 # PACT Local Testing Guide
 
-This guide covers the real interactive CLI flow: chat with Claude or Gemini in a terminal, let the model choose tools, enforce every tool call through PACT, and watch the dashboard update as the SOC monitor.
+This guide covers the real interactive CLI flow: chat with Claude, Gemini, or
+Bedrock in a terminal, let the model choose tools, enforce every tool call
+through PACT, and watch the dashboard update as the SOC monitor.
 
 ## 1. Backend API
 
 From the repo root:
 
 ```bash
-cd backend
+source .venv/bin/activate
 rm -f pact.db
-PYTHONPATH=. uvicorn app.main:app --reload --port 8000
+uv run --project backend --active uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-If port `8000` is already in use, stop the older backend process first. The CLI and backend must use the same SQLite database: `backend/pact.db`.
+If you do not want to rely on shell activation, use:
+
+```bash
+.venv/bin/uvicorn app.main:app --app-dir backend --reload --port 8000
+```
+
+If port `8000` is already in use, stop the older backend process first. With
+the commands above, the backend stores SQLite data in `PACT/pact.db`.
 
 Health check:
 
@@ -78,7 +87,7 @@ inline `y / n` approvals. By default it talks to `http://localhost:8000`
 For piping/scripting, the original CLI still works from the repo root:
 
 ```bash
-python3 pact_chat.py --provider claude   # or --provider gemini / auto
+python3 pact_chat.py --provider claude   # or --provider gemini / bedrock / auto
 ```
 
 Both read these environment variables from `.env`:
@@ -99,7 +108,10 @@ You can also use auto-selection:
 python3 pact_chat.py --provider auto
 ```
 
-If `CLAUDE_MODEL` is a Bedrock model id such as `global.anthropic...` or `anthropic.claude...`, `--provider auto` and `--provider claude` use AWS Bedrock Converse with SigV4 signing. Otherwise `--provider claude` uses the direct Anthropic Messages API.
+If `CLAUDE_MODEL` is a Bedrock model id such as `global.anthropic...` or
+`anthropic.claude...`, `--provider auto` and `--provider claude` use AWS
+Bedrock Converse with SigV4 signing. Otherwise `--provider claude` uses the
+direct Anthropic Messages API.
 
 The interactive CLI does not fabricate connector results:
 
@@ -196,8 +208,8 @@ While the CLI is running:
 Backend:
 
 ```bash
-cd backend
-PYTHONPATH=. python3 -m pytest -q
+source .venv/bin/activate
+python -m pytest -q -c backend/pyproject.toml backend/tests
 ```
 
 Frontend:
@@ -227,15 +239,14 @@ PACT_E2E=1 make e2e
 
 If the dashboard does not show CLI actions, confirm:
 
-- backend is running from `backend/`
+- backend is running from the repo root using the command above
 - frontend is running on port `5173`
 - CLI is run from the repo root
-- all three are using `backend/pact.db`
+- all three are talking to the same backend at `http://localhost:8000`
 
 If backend endpoints fail with missing SQLite columns:
 
 ```bash
-cd backend
 rm -f pact.db
 ```
 

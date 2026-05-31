@@ -22,7 +22,8 @@ by this directory** — `demo/` is a standalone copy with three differences:
 - Snapshots are a point-in-time capture of a real backend. Refresh them with:
 
   ```bash
-  cd backend && uvicorn app.main:app --port 8000   # terminal 1
+  source .venv/bin/activate
+  uv run --project backend --active uvicorn app.main:app --app-dir backend --port 8000   # terminal 1
   ./demo/scripts/capture-snapshots.sh              # terminal 2
   ```
 

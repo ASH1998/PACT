@@ -31,7 +31,14 @@ curl -L https://go.dev/dl/$(curl -s https://go.dev/VERSION?m=text).linux-amd64.t
 export PATH="$HOME/.local/go/bin:$PATH"
 ```
 
-Then, with the PACT backend running (`cd backend && uvicorn app.main:app --port 8000`):
+Then, with the PACT backend running from the repo root:
+
+```bash
+source .venv/bin/activate
+uv run --project backend --active uvicorn app.main:app --app-dir backend --reload --port 8000
+```
+
+Build and run the TUI:
 
 ```bash
 cd clients/pact-tui
@@ -43,8 +50,9 @@ make build
 ```
 
 Provider keys are read from `../../.env` and `../../backend/.env` (same as the
-Python CLI): `CLAUDE_API_KEY`, `GOOGLE_API_KEY`/`GEMINI_API_KEY`, or AWS creds
-for Bedrock.
+Python CLI): `CLAUDE_API_KEY`, `GOOGLE_API_KEY`/`GEMINI_API_KEY`, or
+`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optional
+`AWS_SESSION_TOKEN` for Bedrock.
 
 ### Flags
 

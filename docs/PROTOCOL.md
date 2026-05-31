@@ -578,7 +578,10 @@ a human approves — the filename is irrelevant; the gate is on the sensitivity.
 }
 ```
 
-Triggers when: The tool being called is `shell.execute_mock`. Shell commands always require human approval, regardless of other context. In the MVP, this returns `REQUIRE_APPROVAL` — the actual human approval workflow (approval tokens, UI, timeout handling) is a stretch feature.
+Triggers when: The tool being called is `shell.execute_mock`. Shell commands
+always require human approval, regardless of other context. The current backend
+has approval records and v1 approval/resume APIs; the dashboard shows pending
+approval state, while the interactive CLIs handle approval inline.
 
 ### R10: Valid Action → ALLOW
 
@@ -698,21 +701,33 @@ PACT MVP has deliberate limitations. Understanding these is important for evalua
 
 6. **Multi-agent orchestration** — PACT evaluates one agent's actions at a time. Complex multi-agent coordination, delegation, and trust propagation are not covered.
 
-7. **Cryptographic hardening** — MVP uses Ed25519 signatures and SHA-256 hashes, which are cryptographically sound, but does not implement key rotation, certificate revocation, or hardware security modules.
+7. **Cryptographic hardening** — MVP uses Ed25519 signatures and SHA-256 hashes,
+which are cryptographically sound. The current code has file-backed key roles
+and basic rotation/revocation primitives, but not production HSM/KMS-backed key
+management, certificate chains, or distributed revocation.
 
 8. **Prompt-level filtering** — PACT operates at the tool gateway layer, not the prompt layer. It does not attempt to detect or filter malicious prompts before they reach the agent.
 
-9. **Human approval flow** — `REQUIRE_APPROVAL` decisions are logged but the actual human approval workflow is a stretch feature.
+9. **Human approval operations** — approval records, approve/deny APIs, and CLI
+approval prompts exist. Production RBAC, authenticated reviewer identity,
+dashboard approval operations, and escalation/timeout policy are still pending.
 
 10. **Nondeterministic agent behavior** — MVP scenarios are deterministic. PACT does not handle the variability of real LLM agent outputs.
 
-> **Key architecture note:** The current demo uses a single issuer keypair for both passport issuance and capability token signing. A production deployment should use separate keys for each trust domain (passport-issuer and capability-issuer) so that a compromise of one key does not automatically compromise the other. The PACT protocol primitives support this separation — the implementation simply shares keys for demo simplicity.
+> **Key architecture note:** The production runtime factory now uses
+> `KeyManager` roles for passport and capability issuers. Some legacy/demo
+> endpoints still use the older issuer wiring for compatibility.
 
 ---
 
-## Approval Flow (Stretch)
+## Approval Flow
 
-PACT defines REQUIRE_APPROVAL as a policy decision for sensitive actions (e.g., shell execution). In the MVP, this decision is returned but the actual approval workflow (approval tokens, human-in-the-loop UI, timeout handling) is not implemented. This is documented as a stretch feature for post-MVP development.
+PACT defines `REQUIRE_APPROVAL` as a policy decision for sensitive actions
+(for example shell execution and critical secret reads). The current backend
+implements approval records, approve/deny APIs, and a resume path that prevents
+approval loops for approved actions. The interactive CLIs can prompt inline for
+approval. Remaining production work is RBAC, authenticated reviewers, stronger
+timeout/escalation behavior, and dashboard-first approval operations.
 
 ---
 

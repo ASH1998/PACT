@@ -59,7 +59,7 @@ func main() {
 	defer cancel()
 	if err := client.Health(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "PACT backend not reachable at %s\n", *backend)
-		fmt.Fprintln(os.Stderr, "Start it:  cd backend && uvicorn app.main:app --reload --port 8000")
+		fmt.Fprintln(os.Stderr, "Start it from repo root:  source .venv/bin/activate && uv run --project backend --active uvicorn app.main:app --app-dir backend --reload --port 8000")
 		os.Exit(1)
 	}
 
