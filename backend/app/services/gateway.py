@@ -288,11 +288,12 @@ class GatewayService:
         # Persist tool result back to the action record
         if tool_result is not None:
             from app.models.action import Action as ActionModel
+            from app.core.result_sanitizer import strip_sensitive_fields
             from sqlalchemy import update as sa_update
             await db.execute(
                 sa_update(ActionModel)
                 .where(ActionModel.action_hash == action_hash)
-                .values(result_json=json.dumps(tool_result))
+                .values(result_json=json.dumps(strip_sensitive_fields(tool_result)))
             )
 
         # Step 8.5: Always consume a use (prevents infinite probing)

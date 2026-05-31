@@ -464,10 +464,11 @@ class PactRuntime:
         """Record the result of an externally-executed tool."""
         from sqlalchemy import update as sa_update
         from app.models.action import Action
+        from app.core.result_sanitizer import strip_sensitive_fields
         await db.execute(
             sa_update(Action)
             .where(Action.action_hash == action_hash)
-            .values(result_json=json.dumps(result))
+            .values(result_json=json.dumps(strip_sensitive_fields(result)))
         )
         await db.commit()
 

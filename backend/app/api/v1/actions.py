@@ -118,9 +118,10 @@ async def execute_action(action_id: str, db: AsyncSession = Depends(get_db)):
             args = {}
         tool_result = tool_fn(**args)
 
-    # Persist result
+    # Persist result (sensitive fields stripped — never store secret content)
     if tool_result is not None:
-        action.result_json = json.dumps(tool_result)
+        from app.core.result_sanitizer import strip_sensitive_fields
+        action.result_json = json.dumps(strip_sensitive_fields(tool_result))
         await db.commit()
 
     return {
