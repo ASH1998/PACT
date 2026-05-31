@@ -34,6 +34,7 @@ Thumbs.db
 
 # Keys (never commit real keys)
 keys/
+.pact/
 *.key
 *.pem
 
