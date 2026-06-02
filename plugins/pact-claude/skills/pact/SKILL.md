@@ -50,10 +50,26 @@ Run /pact start, then work normally — native tool calls are PACT-checked.
 
 ## CLI
 
-Run from the repository root, preferring the venv Python:
+Run from the repository root, preferring the venv Python. **Pick the path for
+the current OS** — the virtualenv interpreter lives in a different place on
+Windows than on POSIX:
 
 ```bash
+# macOS / Linux / WSL
 .venv/bin/python plugins/pact-claude/scripts/pact_cli.py <command>
+```
+
+```powershell
+# Windows (PowerShell or cmd)
+.venv\Scripts\python.exe plugins\pact-claude\scripts\pact_cli.py <command>
+```
+
+If you are unsure of the platform, run with a bare `python3`/`python` on PATH —
+the CLI auto-re-execs into the repo virtualenv (`.venv/bin/python` on POSIX,
+`.venv\Scripts\python.exe` on Windows) when `nacl` is missing:
+
+```bash
+python plugins/pact-claude/scripts/pact_cli.py <command>
 ```
 
 Fallback when there is no `.venv`:
@@ -62,14 +78,12 @@ Fallback when there is no `.venv`:
 uv run --project backend --active python plugins/pact-claude/scripts/pact_cli.py <command>
 ```
 
-The CLI auto-re-execs through `./.venv/bin/python` if `nacl` is missing.
-
 ## Workflow
 
 ### `/pact start`
 
 ```bash
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py start --goal "<user goal>"
+python plugins/pact-claude/scripts/pact_cli.py start --goal "<user goal>"
 ```
 
 Use `--grant <path>` for a custom operator grant. Report the `run_id` and tell
@@ -93,14 +107,14 @@ Do not try to bypass a BLOCK with a different native tool.
 ### `/pact check` (manual, optional)
 
 ```bash
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py check --tool file.read --args-json '{"path":"README.md"}'
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py check --tool shell.execute_mock --args-json '{"command":"pytest -q"}'
+python plugins/pact-claude/scripts/pact_cli.py check --tool file.read --args-json '{"path":"README.md"}'
+python plugins/pact-claude/scripts/pact_cli.py check --tool shell.execute_mock --args-json '{"command":"pytest -q"}'
 ```
 
 ### Attach a result (optional)
 
 ```bash
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py attach --action-hash "<hash>" --result-json '{"status":"ok","summary":"..."}'
+python plugins/pact-claude/scripts/pact_cli.py attach --action-hash "<hash>" --result-json '{"status":"ok","summary":"..."}'
 ```
 
 Keep summaries short and redacted — never attach raw secrets.
@@ -108,9 +122,9 @@ Keep summaries short and redacted — never attach raw secrets.
 ### `/pact status`, `/pact replay`, `/pact complete`
 
 ```bash
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py status
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py replay
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py complete
+python plugins/pact-claude/scripts/pact_cli.py status
+python plugins/pact-claude/scripts/pact_cli.py replay
+python plugins/pact-claude/scripts/pact_cli.py complete
 ```
 
 ## Tool Mapping (native -> PACT)

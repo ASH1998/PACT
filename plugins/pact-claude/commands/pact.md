@@ -11,13 +11,28 @@ allowed-tools:
 Subcommand: **$1** (full args: `$ARGUMENTS`)
 
 Run the PACT CLI from the repository root. Prefer the repo virtualenv so PyNaCl
-is available for envelope signing:
+is available for envelope signing. **Use the path for the current OS** — the
+virtualenv interpreter lives in a different place on Windows than on POSIX:
 
 ```bash
+# macOS / Linux / WSL
 .venv/bin/python plugins/pact-claude/scripts/pact_cli.py <command>
 ```
 
-If `.venv` is missing, fall back to:
+```powershell
+# Windows (PowerShell or cmd)
+.venv\Scripts\python.exe plugins\pact-claude\scripts\pact_cli.py <command>
+```
+
+If you are unsure of the platform, run with a bare `python3`/`python` on PATH —
+the CLI auto-re-execs into the repo virtualenv (`.venv/bin/python` on POSIX,
+`.venv\Scripts\python.exe` on Windows) when PyNaCl is missing:
+
+```bash
+python plugins/pact-claude/scripts/pact_cli.py <command>
+```
+
+If `.venv` is missing entirely, fall back to:
 
 ```bash
 uv run --project backend --active python plugins/pact-claude/scripts/pact_cli.py <command>

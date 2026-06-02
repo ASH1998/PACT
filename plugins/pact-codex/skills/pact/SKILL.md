@@ -59,9 +59,12 @@ Run commands from the repository root:
 python3 plugins/pact-codex/scripts/pact_cli.py <command>
 ```
 
-If Python cannot import `nacl`, the CLI automatically re-execs through
-`./.venv/bin/python` when available. Otherwise run through the backend
-environment:
+(On Windows, use `python` instead of `python3`.)
+
+If Python cannot import `nacl`, the CLI automatically re-execs through the repo
+virtualenv — `.venv/bin/python` on POSIX or `.venv\Scripts\python.exe` on
+Windows, checking both the root `.venv` and `backend/.venv`. Otherwise run
+through the backend environment:
 
 ```bash
 uv run --project backend --active python plugins/pact-codex/scripts/pact_cli.py <command>
