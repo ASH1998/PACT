@@ -3,6 +3,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ASH1998/PACT/releases"><img src="https://img.shields.io/github/v/release/ASH1998/PACT?sort=semver&label=release&color=22d3ee" alt="Latest release"></a>
   <a href="https://github.com/ASH1998/PACT/actions/workflows/ci.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/ci.yml/badge.svg" alt="PACT CI"></a>
   <a href="https://github.com/ASH1998/PACT/actions/workflows/test.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/test.yml/badge.svg" alt="Test"></a>
   <a href="https://github.com/ASH1998/PACT/actions/workflows/deploy-demo.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/deploy-demo.yml/badge.svg" alt="Deploy demo to GitHub Pages"></a>
