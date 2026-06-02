@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, ExternalLink, Activity } from 'lucide-react';
 import { getRun, RunDetail as RunDetailType, ActionData, verifyLedger, LedgerVerification, tamperLedger, TamperResult } from '../api/client';
 import ActionGraph from '../components/ActionGraph';
+import { formatTime, formatDateTime } from '../utils/time';
 
 export default function RunDetail() {
   const { runId } = useParams<{ runId: string }>();
@@ -36,7 +37,7 @@ export default function RunDetail() {
             ← Back to Runs
           </Link>
           <h1 className="text-lg font-semibold tracking-tight">
-            Run <span className="font-mono text-pact-info">{run.run_id.slice(0, 16)}…</span>
+            Run <span className="font-mono text-pact-info">{run.run_id}</span>
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -108,6 +109,40 @@ export default function RunDetail() {
               <span className="font-mono text-gray-300">{run.intent_contract.risk_budget}</span>
             </div>
           </div>
+          {run.intent_contract.resource_scope &&
+            Object.keys(run.intent_contract.resource_scope).length > 0 && (
+              <div className="mt-4 pt-3 border-t border-pact-border">
+                <div className="text-gray-500 mb-2 text-xs">
+                  Resource Scope{' '}
+                  <span className="text-gray-600">
+                    — which resources each allowed tool may touch
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                  {Object.entries(run.intent_contract.resource_scope).map(([type, patterns]) => (
+                    <div key={type} className="flex items-baseline gap-2">
+                      <span className="text-gray-400 font-mono shrink-0">{type}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {patterns.length === 0 ? (
+                          <span className="px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-500 font-mono italic">
+                            none
+                          </span>
+                        ) : (
+                          patterns.map((p) => (
+                            <span
+                              key={p}
+                              className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-mono"
+                            >
+                              {p}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
       )}
 
@@ -144,6 +179,7 @@ export default function RunDetail() {
             <tr className="text-gray-500 border-b border-pact-border">
               <th className="text-left py-2 pr-3 font-medium w-8" />
               <th className="text-left py-2 pr-3 font-medium">Step</th>
+              <th className="text-left py-2 pr-3 font-medium">Time</th>
               <th className="text-left py-2 pr-3 font-medium">Tool</th>
               <th className="text-left py-2 pr-3 font-medium">Status</th>
               <th className="text-right py-2 pr-3 font-medium">Risk</th>
@@ -192,6 +228,12 @@ function ActionRow({
           {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </td>
         <td className="py-2 pr-3 font-mono text-gray-300">{a.step_id}</td>
+        <td
+          className="py-2 pr-3 font-mono text-gray-400 whitespace-nowrap"
+          title={formatDateTime(a.created_at)}
+        >
+          {formatTime(a.created_at)}
+        </td>
         <td className="py-2 pr-3 font-mono text-pact-info">{a.tool}</td>
         <td className="py-2 pr-3">
           <span className={statusClass}>{a.status}</span>
@@ -205,7 +247,7 @@ function ActionRow({
       </tr>
       {expanded && (
         <tr>
-           <td colSpan={6} className="bg-pact-bg/60 px-6 py-4 border-b border-pact-border/30">
+           <td colSpan={7} className="bg-pact-bg/60 px-6 py-4 border-b border-pact-border/30">
             <div className="grid grid-cols-2 gap-6 text-xs">
               <div>
                 <div className="text-gray-500 mb-1 font-medium">Policy Decision</div>
