@@ -2,6 +2,12 @@
   <img src="docs/assets/pact-banner.svg" alt="PACT — Provenance-Aware Capability Tokens for AI Agents" width="620">
 </p>
 
+<p align="center">
+  <a href="https://github.com/ASH1998/PACT/actions/workflows/ci.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/ci.yml/badge.svg" alt="PACT CI"></a>
+  <a href="https://github.com/ASH1998/PACT/actions/workflows/test.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/test.yml/badge.svg" alt="Test"></a>
+  <a href="https://github.com/ASH1998/PACT/actions/workflows/deploy-demo.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/deploy-demo.yml/badge.svg" alt="Deploy demo to GitHub Pages"></a>
+</p>
+
 PACT is a runtime security layer for AI agents. Every tool call an agent makes
 passes through a signed gateway that verifies *who* is acting, *whether the
 action matches the user's intent*, *whether it is within an operator-authorized
