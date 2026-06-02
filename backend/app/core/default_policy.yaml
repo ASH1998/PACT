@@ -48,14 +48,47 @@ rules:
     risk_score: 50
     reason: "{tool} is explicitly forbidden by intent contract"
 
-  # Hard authorization boundary — before approval/taint rules.
+  # Hard authorization boundary — before approval/taint rules. Risk is graduated
+  # by the danger of the out-of-scope target (external write / shell / web reach
+  # are worse than a local file read). Ordered most-specific first; the evaluator
+  # stops at the first matching BLOCK rule.
+  - id: R12a-scope-external-write
+    name: Out-Of-Scope External Write
+    condition:
+      resource_in_scope: false
+      side_effect: external_write
+    action: BLOCK
+    severity: critical
+    risk_score: 85
+    reason: "External write to '{resource}' is outside the authorized scope for {tool}"
+
+  - id: R12b-scope-shell
+    name: Out-Of-Scope Shell Command
+    condition:
+      resource_in_scope: false
+      tool_prefix: "shell."
+    action: BLOCK
+    severity: high
+    risk_score: 80
+    reason: "Shell command '{resource}' is outside the authorized scope for {tool}"
+
+  - id: R12c-scope-web
+    name: Out-Of-Scope Web Fetch
+    condition:
+      resource_in_scope: false
+      tool_prefix: "web."
+    action: BLOCK
+    severity: high
+    risk_score: 75
+    reason: "URL '{resource}' is outside the authorized web scope for {tool}"
+
   - id: R12-resource-out-of-scope
     name: Resource Out Of Scope
     condition:
       resource_in_scope: false
     action: BLOCK
-    severity: high
-    risk_score: 70
+    severity: medium
+    risk_score: 60
     reason: "Resource '{resource}' is outside the authorized scope for {tool}"
 
   - id: R6-untrusted-email-external-write

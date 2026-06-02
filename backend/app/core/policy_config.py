@@ -58,15 +58,47 @@ DEFAULT_POLICY_RULES = [
         "risk_score": 50,
         "reason": "{tool} is explicitly forbidden by intent contract",
     },
+    # Hard authorization boundary — evaluated before approval/taint rules so an
+    # unauthorized resource is blocked outright, never merely approvable. Risk is
+    # graduated by the danger of the out-of-scope target: an external write (e.g.
+    # mailing an unauthorized recipient) or shell/web reach is far more dangerous
+    # than reading a local file outside the path allowlist. Ordered most-specific
+    # first because the evaluator stops at the first matching BLOCK rule.
     {
-        # Hard authorization boundary — evaluated before approval/taint rules so
-        # an unauthorized resource is blocked outright, never merely approvable.
+        "id": "R12a-scope-external-write",
+        "name": "Out-Of-Scope External Write",
+        "condition": {"resource_in_scope": False, "side_effect": "external_write"},
+        "action": "BLOCK",
+        "severity": "critical",
+        "risk_score": 85,
+        "reason": "External write to '{resource}' is outside the authorized scope for {tool}",
+    },
+    {
+        "id": "R12b-scope-shell",
+        "name": "Out-Of-Scope Shell Command",
+        "condition": {"resource_in_scope": False, "tool_prefix": "shell."},
+        "action": "BLOCK",
+        "severity": "high",
+        "risk_score": 80,
+        "reason": "Shell command '{resource}' is outside the authorized scope for {tool}",
+    },
+    {
+        "id": "R12c-scope-web",
+        "name": "Out-Of-Scope Web Fetch",
+        "condition": {"resource_in_scope": False, "tool_prefix": "web."},
+        "action": "BLOCK",
+        "severity": "high",
+        "risk_score": 75,
+        "reason": "URL '{resource}' is outside the authorized web scope for {tool}",
+    },
+    {
+        # Generic fallback: local reads (e.g. file.read) outside the path allowlist.
         "id": "R12-resource-out-of-scope",
         "name": "Resource Out Of Scope",
         "condition": {"resource_in_scope": False},
         "action": "BLOCK",
-        "severity": "high",
-        "risk_score": 70,
+        "severity": "medium",
+        "risk_score": 60,
         "reason": "Resource '{resource}' is outside the authorized scope for {tool}",
     },
     {
