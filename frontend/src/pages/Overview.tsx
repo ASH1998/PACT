@@ -33,6 +33,7 @@ import {
   getBlockedActions,
   BlockedActionData,
 } from '../api/client';
+import { formatTime } from '../utils/time';
 
 export default function Overview() {
   const [data, setData] = useState<DashboardOverview | null>(null);
@@ -97,7 +98,7 @@ export default function Overview() {
   const timeline = [...data.risk_timeline]
     .reverse()
     .map((d, i) => ({
-      name: d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : `#${i}`,
+      name: d.timestamp ? formatTime(d.timestamp) : `#${i}`,
       risk: d.risk_score,
       severity: d.severity,
     }));
