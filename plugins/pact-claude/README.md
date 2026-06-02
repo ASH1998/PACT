@@ -21,7 +21,8 @@ plugins/pact-claude/
 ├── scripts/
 │   ├── pact_cli.py              # start/status/check/replay/complete CLI
 │   ├── pact_hook.py             # PreToolUse hook -> PACT gateway
-│   └── run_hook.sh              # picks venv python, pipes stdin to the hook
+│   ├── run_hook                 # POSIX launcher: picks venv python, pipes stdin
+│   └── run_hook.cmd             # Windows launcher (cmd.exe PATHEXT shim)
 └── assets/default-grant.yaml    # conservative default capability grant
 ```
 

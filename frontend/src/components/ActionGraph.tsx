@@ -20,7 +20,11 @@ interface Props {
 
 const NODE_W = 180;
 const NODE_H = 50;
-const GAP_Y = 80;
+const GAP_Y = 110;
+const PD_X = -200;
+const ACTION_X = 120;
+const PROV_X = 480;
+const INTENT_W = NODE_W + 40;
 
 function statusColor(status: string): string {
   if (status === 'allowed') return '#22c55e';
@@ -44,7 +48,8 @@ export default function ActionGraph({ run }: Props) {
     n.push({
       id: 'intent',
       type: 'default',
-      position: { x: 200, y: 0 },
+      // Centered above the action column so it doesn't sprawl over the provenance column.
+      position: { x: ACTION_X + NODE_W / 2 - INTENT_W / 2, y: 0 },
       data: { label: `Intent: ${run.user_goal?.slice(0, 40) ?? 'Goal'}` },
       style: {
         background: '#7c3aed',
@@ -53,7 +58,7 @@ export default function ActionGraph({ run }: Props) {
         borderRadius: 8,
         fontSize: 11,
         padding: '8px 12px',
-        width: NODE_W + 60,
+        width: INTENT_W,
       },
     });
 
@@ -66,7 +71,7 @@ export default function ActionGraph({ run }: Props) {
       n.push({
         id: `action-${a.step_id}`,
         type: 'default',
-        position: { x: 120, y },
+        position: { x: ACTION_X, y },
         data: {
           label: (
             <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
@@ -88,13 +93,25 @@ export default function ActionGraph({ run }: Props) {
         },
       });
 
-      // Edge from intent to first action, or parent chain
-      const source = idx === 0 ? 'intent' : `action-${run.actions[idx - 1].step_id}`;
+      // Taint sources that point at an action node we've already placed (exclude self).
+      const prevStepId = idx > 0 ? run.actions[idx - 1].step_id : null;
+      const taints = (a.provenance.influenced_by_sources ?? []).filter(
+        (src) =>
+          src.source_step >= 0 &&
+          src.source_step !== a.step_id &&
+          n.some((node) => node.id === `action-${src.source_step}`),
+      );
+
+      // Edge from intent to first action, or parent chain. Taint labels for the
+      // immediately-preceding step are merged in here so we don't draw a second
+      // edge over the same node pair (which would stack the labels on top of it).
+      const source = idx === 0 ? 'intent' : `action-${prevStepId}`;
+      const adjacentTaints = taints.filter((t) => t.source_step === prevStepId).map((t) => t.label);
       e.push({
         id: `e-${source}-${a.step_id}`,
         source,
         target: `action-${a.step_id}`,
-        label: 'calls_tool',
+        label: ['calls_tool', ...adjacentTaints].join(' · '),
         labelStyle: { fill: color, fontSize: 9 },
         style: { stroke: color },
         markerEnd: { type: MarkerType.ArrowClosed, color },
@@ -108,7 +125,7 @@ export default function ActionGraph({ run }: Props) {
         n.push({
           id: provId,
           type: 'default',
-          position: { x: 400, y },
+          position: { x: PROV_X, y },
           data: {
             label: (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
@@ -141,47 +158,34 @@ export default function ActionGraph({ run }: Props) {
             padding: '6px 10px',
           },
         });
+        // influenced_by and uses_data both connect this action to the same
+        // provenance node; fold them into one edge so the labels don't collide.
+        const provRels = ['influenced_by'];
+        if (a.provenance.uses_data.length > 0) provRels.push('uses_data');
         e.push({
           id: `e-${provId}-action-${a.step_id}`,
           source: provId,
           target: `action-${a.step_id}`,
-          label: 'influenced_by',
+          label: provRels.join(' · '),
           labelStyle: { fill: '#f59e0b', fontSize: 8 },
           style: { stroke: '#f59e0b55', strokeDasharray: '5 5' },
         });
       }
 
-      // Uses-data edge (from action to its own provenance node)
-      if (a.provenance.uses_data.length > 0 && a.provenance.influenced_by.length > 0) {
-        const provId = `prov-${a.step_id}`;
+      // Inter-step causal edges (taint propagation). Adjacent-step taints are
+      // already folded into the chain edge above, so only draw edges here for
+      // non-adjacent sources to avoid stacking a second edge over the chain.
+      for (const src of taints) {
+        if (src.source_step === prevStepId) continue;
         e.push({
-          id: `e-action-${a.step_id}-uses-data`,
-          source: `action-${a.step_id}`,
-          target: provId,
-          label: 'uses_data',
-          labelStyle: { fill: '#3b82f6', fontSize: 8 },
-          style: { stroke: '#3b82f655', strokeDasharray: '3 3' },
+          id: `e-taint-${src.source_step}-${a.step_id}-${src.label}`,
+          source: `action-${src.source_step}`,
+          target: `action-${a.step_id}`,
+          label: src.label,
+          labelStyle: { fill: '#ef4444', fontSize: 8 },
+          style: { stroke: '#ef444455', strokeDasharray: '5 5' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' },
         });
-      }
-
-      // Inter-step causal edges (taint propagation)
-      if (a.provenance.influenced_by_sources) {
-        for (const src of a.provenance.influenced_by_sources) {
-          if (src.source_step >= 0 && src.source_step !== a.step_id) {
-            const sourceActionId = `action-${src.source_step}`;
-            if (n.some((node) => node.id === sourceActionId)) {
-              e.push({
-                id: `e-taint-${src.source_step}-${a.step_id}-${src.label}`,
-                source: sourceActionId,
-                target: `action-${a.step_id}`,
-                label: src.label,
-                labelStyle: { fill: '#ef4444', fontSize: 8 },
-                style: { stroke: '#ef444455', strokeDasharray: '5 5' },
-                markerEnd: { type: MarkerType.ArrowClosed, color: '#ef4444' },
-              });
-            }
-          }
-        }
       }
 
       // Policy decision node
@@ -191,7 +195,7 @@ export default function ActionGraph({ run }: Props) {
         n.push({
           id: pdId,
           type: 'default',
-          position: { x: -100, y },
+          position: { x: PD_X, y },
           data: { label: `${a.policy_decision.decision} (${a.policy_decision.risk_score})` },
           style: {
             background: a.policy_decision.decision === 'BLOCK' ? '#1a0505' : '#051a05',

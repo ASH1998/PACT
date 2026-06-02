@@ -130,6 +130,10 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
                 "user_goal": intent.user_goal,
                 "allowed_actions": json.loads(intent.allowed_actions_json),
                 "forbidden_actions": json.loads(intent.forbidden_actions_json),
+                # Per-resource-type allowlist — the authority that decides which
+                # specific resources each allowed tool may touch (R12). Surfaced
+                # so the UI can explain scope-based blocks on otherwise-allowed tools.
+                "resource_scope": json.loads(intent.resource_scope_json or "{}"),
                 "risk_budget": intent.risk_budget,
                 "approval_required_for": json.loads(intent.approval_required_for_json),
                 "intent_hash": intent.intent_hash,

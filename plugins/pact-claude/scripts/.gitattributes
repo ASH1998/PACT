@@ -1,0 +1,8 @@
+# The POSIX hook launcher is an extensionless shell script. It must keep LF
+# line endings so its `#!/bin/sh` shebang works on Linux/macOS/WSL and under
+# Git Bash on Windows, regardless of the user's core.autocrlf setting.
+run_hook      text eol=lf
+*.sh          text eol=lf
+
+# The Windows launcher is run by cmd.exe; keep conventional CRLF endings.
+run_hook.cmd  text eol=crlf

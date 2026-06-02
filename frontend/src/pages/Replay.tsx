@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { getReplay, getRun, ReplayData, ReplayStepData, RunDetail as RunDetailType } from '../api/client';
 import ActionGraph from '../components/ActionGraph';
+import { formatDateTime } from '../utils/time';
 
 export default function Replay() {
   const { runId } = useParams<{ runId: string }>();
@@ -254,7 +255,7 @@ function StepDetail({ step }: { step: ReplayStepData }) {
 
       {/* Metadata grid */}
       <div className="grid grid-cols-2 gap-4 text-xs">
-        <Field label="Timestamp" value={step.timestamp ? new Date(step.timestamp).toLocaleString() : '—'} />
+        <Field label="Timestamp" value={formatDateTime(step.timestamp)} />
         <Field label="Agent" value={step.agent_id} />
         <Field label="Risk Score" value={String(pd.risk_score)} />
         <Field label="Severity" value={pd.severity} />

@@ -10,14 +10,40 @@ allowed-tools:
 
 Subcommand: **$1** (full args: `$ARGUMENTS`)
 
-Run the PACT CLI from the repository root. Prefer the repo virtualenv so PyNaCl
-is available for envelope signing:
+Run the PACT CLI from the repository root. Signing PACT envelopes needs PyNaCl,
+which lives in the repo virtualenv — so prefer a venv interpreter, but **never
+hardcode its path**. The venv may use the POSIX layout (`.venv/bin/python`) or
+the Windows layout (`.venv/Scripts/python.exe`), may live at the repo root or
+under `backend/`, and may be absent entirely. Always **pick the first
+interpreter that actually exists**, then fall back to a system `python3`/`python`
+— the CLI auto-re-execs into a PyNaCl-capable venv when one is present and
+signing is needed (so `start`/`status`/`replay`/`complete`, which don't sign,
+work under any Python).
+
+**macOS / Linux / WSL** — run this as a single Bash command (selects the
+interpreter, then runs the CLI):
 
 ```bash
-.venv/bin/python plugins/pact-claude/scripts/pact_cli.py <command>
+PACT_PY=""
+for c in .venv/bin/python backend/.venv/bin/python; do
+  [ -x "$c" ] && PACT_PY="$c" && break
+done
+[ -z "$PACT_PY" ] && PACT_PY="$(command -v python3 || command -v python)"
+"$PACT_PY" plugins/pact-claude/scripts/pact_cli.py <command>
 ```
 
-If `.venv` is missing, fall back to:
+**Windows (PowerShell)**:
+
+```powershell
+$pactPy = @('.venv\Scripts\python.exe', 'backend\.venv\Scripts\python.exe') |
+  Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $pactPy) { $pactPy = 'python' }
+& $pactPy plugins\pact-claude\scripts\pact_cli.py <command>
+```
+
+If the selected interpreter has no PyNaCl and no venv exists yet, create one
+(`python3 -m venv .venv && .venv/bin/python -m pip install pynacl pyyaml` on
+POSIX) or run through `uv`:
 
 ```bash
 uv run --project backend --active python plugins/pact-claude/scripts/pact_cli.py <command>

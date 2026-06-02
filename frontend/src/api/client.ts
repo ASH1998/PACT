@@ -96,6 +96,8 @@ export interface IntentContractData {
   user_goal: string;
   allowed_actions: string[];
   forbidden_actions: string[];
+  /** Per-resource-type allowlist (e.g. file_path, url, email_address → patterns). */
+  resource_scope?: Record<string, string[]>;
   risk_budget: string;
   approval_required_for: string[];
   intent_hash: string;

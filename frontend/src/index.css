@@ -45,3 +45,31 @@
     @apply badge bg-amber-500/20 text-amber-400 border border-amber-500/30;
   }
 }
+
+/*
+ * Dark-theme overrides for React Flow (@xyflow/react). Its default stylesheet
+ * renders controls and edge-label backgrounds in white, which clashes with the
+ * dark SOC theme. Scoped under `.react-flow` for higher specificity so these
+ * win over the imported default styles regardless of CSS import order.
+ */
+.react-flow .react-flow__controls {
+  box-shadow: 0 0 0 1px #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow .react-flow__controls-button {
+  background: #131a2a;
+  border-bottom: 1px solid #1e293b;
+  color: #cbd5e1;
+}
+.react-flow .react-flow__controls-button:hover {
+  background: #1e293b;
+}
+.react-flow .react-flow__controls-button svg {
+  fill: #cbd5e1;
+}
+/* Edge label pills: dark background instead of the default white box. */
+.react-flow .react-flow__edge-textbg {
+  fill: #0f172a;
+  fill-opacity: 0.85;
+}
