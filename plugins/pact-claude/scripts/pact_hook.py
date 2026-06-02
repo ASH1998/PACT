@@ -23,6 +23,7 @@ Design choices for a smooth demo:
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -40,6 +41,45 @@ SECRET_HINT = re.compile(
 
 # Bash command substrings that mean "this is PACT plumbing" -> never intercept.
 SELF_MARKERS = ("pact_cli.py", "pact_hook.py", "plugins/pact-claude", "plugins/pact-codex")
+
+
+def bootstrap_venv() -> None:
+    """Re-exec into a PyNaCl-capable venv interpreter if the current one lacks it.
+
+    The launcher (run_hook / run_hook.cmd) normally picks a signing-capable
+    interpreter up front. This is a belt-and-suspenders fallback: if the hook is
+    invoked under an interpreter without PyNaCl (e.g. a bare ``python`` on PATH),
+    re-exec the same script under a venv interpreter that has it, forwarding the
+    stdin event so the child can read it. No-op when PyNaCl is already importable
+    or no capable interpreter exists (signing then degrades to an "ask").
+    """
+    try:
+        import nacl  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    if os.environ.get("PACT_HOOK_REEXECED") == "1":
+        return  # already retried once; don't loop
+
+    vpy = pact_cli.venv_python()
+    if vpy is None:
+        return
+    try:
+        if Path(vpy).resolve() == Path(sys.executable).resolve():
+            return  # the capable interpreter is the one already running
+    except OSError:
+        pass
+
+    import subprocess
+
+    raw = sys.stdin.buffer.read()  # forward the event the parent never read
+    env = os.environ.copy()
+    env["PACT_HOOK_REEXECED"] = "1"
+    completed = subprocess.run(
+        [str(vpy), str(Path(__file__).resolve())], input=raw, env=env
+    )
+    raise SystemExit(completed.returncode)
 
 
 def emit(decision: str, reason: str, context: str | None = None) -> None:
@@ -92,6 +132,7 @@ def map_tool(tool_name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str,
 
 
 def main() -> None:
+    bootstrap_venv()  # ensure PyNaCl is importable before we read the event
     try:
         event = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:

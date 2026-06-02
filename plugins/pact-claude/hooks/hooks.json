@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run_hook.sh\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/run_hook\"",
             "timeout": 30
           }
         ]

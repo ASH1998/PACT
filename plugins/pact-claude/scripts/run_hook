@@ -1,0 +1,50 @@
+#!/bin/sh
+# PACT PreToolUse hook launcher (POSIX: Linux, macOS, WSL, Git Bash).
+# Launch the hook using the repo virtualenv Python when present (so PyNaCl is
+# available for envelope signing), else fall back to system python. stdin (the
+# hook event JSON) is passed straight through via exec.
+#
+# This file has NO extension on purpose: hooks.json points at ".../run_hook"
+# with no extension, so on Windows cmd.exe resolves it to run_hook.cmd via
+# PATHEXT, while POSIX shells execute this script directly (npm-style shim).
+# Keep this in sync with run_hook.cmd.
+
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
+
+# Pick the interpreter that can sign PACT envelopes (needs PyNaCl). The hook
+# can't rely on pact_cli.py's re-exec fallback: it has already consumed the
+# stdin event, so it must run under a PyNaCl-capable interpreter from the start.
+#
+# Probe each candidate for `import nacl` and prefer one that has it. Covers both
+# interpreter layouts -- POSIX (bin/) and Windows (Scripts/), since this script
+# also runs under Git Bash on Windows -- and both env locations: the repo root
+# .venv and the uv-provisioned backend/.venv.
+PY=""
+FALLBACK=""
+for candidate in \
+  "$REPO_ROOT/.venv/bin/python" \
+  "$REPO_ROOT/.venv/Scripts/python.exe" \
+  "$REPO_ROOT/backend/.venv/bin/python" \
+  "$REPO_ROOT/backend/.venv/Scripts/python.exe"; do
+  if [ -x "$candidate" ] || [ -f "$candidate" ]; then
+    [ -z "$FALLBACK" ] && FALLBACK="$candidate"
+    if "$candidate" -c "import nacl" >/dev/null 2>&1 </dev/null; then
+      PY="$candidate"
+      break
+    fi
+  fi
+done
+
+# No PyNaCl-capable venv found: use the first venv that exists, else whatever
+# python is on PATH. pact_hook.py self-bootstraps into a PyNaCl-capable venv if
+# the chosen interpreter still lacks it, so signing degrades to "ask" only when
+# no capable interpreter exists anywhere.
+if [ -z "$PY" ]; then
+  PY="$FALLBACK"
+fi
+if [ -z "$PY" ]; then
+  PY="$(command -v python3 || command -v python)"
+fi
+
+exec "$PY" "$PLUGIN_ROOT/scripts/pact_hook.py"

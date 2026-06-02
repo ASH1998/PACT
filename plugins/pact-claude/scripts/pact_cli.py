@@ -36,6 +36,47 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 # plugins/pact-claude -> plugins -> repo root
 REPO_ROOT = PLUGIN_ROOT.parents[1]
 DEFAULT_BASE_URL = "http://localhost:8000"
+
+
+def _venv_candidates() -> list[Path]:
+    """Candidate virtualenv interpreters, most-preferred first.
+
+    Covers both interpreter layouts — Windows (``Scripts/python.exe``) and POSIX
+    (``bin/python``) — and both common locations: the repo root ``.venv`` and the
+    ``backend/.venv`` provisioned by ``uv``.
+    """
+    if os.name == "nt":
+        rel = Path("Scripts") / "python.exe"
+    else:
+        rel = Path("bin") / "python"
+    roots = [REPO_ROOT / ".venv", REPO_ROOT / "backend" / ".venv"]
+    return [root / rel for root in roots]
+
+
+def venv_python() -> Path | None:
+    """Best virtualenv interpreter for signing PACT envelopes.
+
+    Returns the first candidate that can ``import nacl`` (PyNaCl), so signing
+    works regardless of which env the user provisioned. Falls back to the first
+    interpreter that merely exists so error messages can show a real path.
+    Returns ``None`` if no virtualenv interpreter is present.
+    """
+    import subprocess
+
+    existing = [p for p in _venv_candidates() if p.exists()]
+    for python in existing:
+        try:
+            probe = subprocess.run(
+                [str(python), "-c", "import nacl"],
+                capture_output=True,
+                timeout=15,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0:
+            return python
+    return existing[0] if existing else None
+
 DEFAULT_GRANT_PATH = PLUGIN_ROOT / "assets" / "default-grant.yaml"
 STATE_PATH = REPO_ROOT / ".pact" / "claude-session.json"
 
@@ -138,11 +179,24 @@ def sign_envelope(envelope: dict[str, Any], private_key_b64: str) -> None:
     try:
         from nacl.signing import SigningKey
     except ImportError as exc:
-        venv_python = REPO_ROOT / ".venv" / "bin" / "python"
-        if venv_python.exists() and os.environ.get("PACT_CLAUDE_REEXECED") != "1":
+        vpy = venv_python()
+        # Don't re-exec inside the PreToolUse hook here: by this point the hook
+        # has already consumed its stdin event, so a fresh process would read
+        # nothing and silently defer. Interpreter selection for the hook happens
+        # earlier -- in the launcher (run_hook / run_hook.cmd) and in
+        # pact_hook.bootstrap_venv(), which both forward stdin correctly.
+        in_hook = "pact_hook" in os.path.basename(sys.argv[0] or "") if sys.argv else False
+        if vpy and not in_hook and os.environ.get("PACT_CLAUDE_REEXECED") != "1":
+            import subprocess
+
             env = os.environ.copy()
             env["PACT_CLAUDE_REEXECED"] = "1"
-            os.execve(str(venv_python), [str(venv_python), *sys.argv], env)
+            # Re-run the same command under the venv interpreter, which has
+            # PyNaCl. subprocess.run behaves identically on POSIX and Windows
+            # (os.execve does not: on Windows it detaches and loses stdout),
+            # and we propagate the child's exit code.
+            completed = subprocess.run([str(vpy), *sys.argv], env=env)
+            raise SystemExit(completed.returncode)
         raise PactError(
             "PyNaCl is required to sign PACT envelopes. Run through the backend "
             "environment: uv run --project backend --active python "
