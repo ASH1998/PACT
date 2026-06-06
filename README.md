@@ -19,6 +19,8 @@ before the tool runs. Every decision is written to a tamper-evident ledger.
 > PACT asks *"is **this action** legitimate **in this context**, and was it
 > influenced by untrusted or secret data?"* — and enforces the answer.
 
+PS. This project was created by using Github Copilot
+
 ---
 
 ## How it works
