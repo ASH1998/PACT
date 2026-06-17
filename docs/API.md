@@ -22,6 +22,20 @@ newer `/v1` gateway path: it registers an agent, creates intents/runs, signs
 Action Envelopes locally, submits actions to PACT for a decision, executes
 allowed tools locally, and attaches results back to the run.
 
+## Endpoint Trust Matrix
+
+PACT is pre-1.0. The API currently contains both enforcement paths and
+local/demo control-plane paths. Do not expose demo authority endpoints on an
+untrusted network.
+
+| Surface | Current trust status | Notes |
+|---|---|---|
+| `/v1/gateway`, `/v1/actions`, `/v1/runs` | Gateway/runtime paths | Evaluate or record actions; production deployments still need API auth and tenant isolation. |
+| `/v1/agents/register` | Local/demo authority endpoint | Returns a demo agent private key and requires `PACT_INSECURE_DEMO_API=true`. Production should register public keys or workload identities instead. |
+| `/v1/capabilities` | Local/demo authority endpoint | Issues signed capability tokens and requires `PACT_INSECURE_DEMO_API=true`. Production issuance must be authority-controlled. |
+| `/v1/policies`, `/v1/tools`, `/v1/intents`, `/v1/approvals` | Control-plane endpoints | Useful for local development; production needs authenticated RBAC and tenant scoping before exposure. |
+| Legacy `/agents`, `/intents`, `/capabilities`, `/tools`, `/scenarios`, `/runs`, `/dashboard` | Demo/dashboard surface | Kept for demos and dashboard compatibility; not a hardened production API. |
+
 Provider proxy routes are also mounted:
 
 ```text
@@ -97,6 +111,11 @@ curl http://localhost:8000/health
 ## Agents
 
 ### POST /agents/register
+
+> Demo authority endpoint: this route returns a private key and must only be
+> used in trusted local development. The production-oriented `/v1` registration
+> route is gated by `PACT_INSECURE_DEMO_API=true` until authority-controlled
+> registration is implemented.
 
 Register a new AI agent. Returns the agent's passport and private key (the private key is only returned once at registration time).
 

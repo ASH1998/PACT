@@ -9,6 +9,7 @@ import os
 
 # Force in-memory SQLite BEFORE app modules are imported
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite://"
+os.environ["PACT_INSECURE_DEMO_API"] = "true"
 
 import pytest
 from httpx import AsyncClient, ASGITransport

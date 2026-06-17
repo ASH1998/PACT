@@ -2,7 +2,7 @@ package grant
 
 import "testing"
 
-func TestLoadAcmeExample(t *testing.T) {
+func TestLoadExampleGrant(t *testing.T) {
 	g, err := Load("../../../../examples/grant.acme.yaml")
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -10,11 +10,11 @@ func TestLoadAcmeExample(t *testing.T) {
 	if !g.AllTools {
 		t.Errorf("expected tools: \"*\" -> AllTools true, got %v", g.Tools)
 	}
-	if got := g.ResourceScope["email_address"]; len(got) != 1 || got[0] != "*@acme.com" {
+	if got := g.ResourceScope["email_address"]; len(got) != 1 || got[0] != "*@pokemon.com" {
 		t.Errorf("email_address scope = %v", got)
 	}
-	if got := g.ResourceScope["command"]; len(got) != 0 {
-		t.Errorf("command scope should be empty (deny), got %v", got)
+	if got := g.ResourceScope["command"]; len(got) != 2 || got[0] != "ls" || got[1] != "cat" {
+		t.Errorf("command scope = %v, want [ls cat]", got)
 	}
 }
 

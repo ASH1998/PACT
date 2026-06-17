@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/ASH1998/PACT/releases"><img src="https://img.shields.io/github/v/release/ASH1998/PACT?sort=semver&label=release&color=22d3ee" alt="Latest release"></a>
   <a href="https://github.com/ASH1998/PACT/actions/workflows/ci.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/ci.yml/badge.svg" alt="PACT CI"></a>
-  <a href="https://github.com/ASH1998/PACT/actions/workflows/test.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/test.yml/badge.svg" alt="Test"></a>
+  <a href="https://github.com/ASH1998/PACT/actions/workflows/codeql.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <a href="https://github.com/ASH1998/PACT/actions/workflows/deploy-demo.yml"><img src="https://github.com/ASH1998/PACT/actions/workflows/deploy-demo.yml/badge.svg" alt="Deploy demo to GitHub Pages"></a>
 </p>
 
@@ -39,22 +39,27 @@ scope, or secret/untrusted data would flow to an external sink.
 
 ## Security model
 
-| Primitive | Purpose |
-|---|---|
-| **Agent Passport** | Issuer-signed Ed25519 identity, verified on every call |
-| **Intent Contract** | Locks the allowed actions to the user's goal; tamper-evident hash |
-| **Operator Grant** | Deny-by-default ceiling on *tools* and *resource scope* — the authority the agent cannot widen |
-| **Capability Token** | Short-lived, scoped, intent-bound, signed, use-limited permission |
-| **Provenance / Taint** | Tracks trusted / untrusted / secret / generated data and propagates it across steps |
-| **Policy Engine** | Evaluates identity + intent + capability + resource scope + provenance → decision + risk |
-| **Tamper-Evident Ledger** | Hash-chained record of every attempted action |
-| **SOC Dashboard + Replay** | Visual monitoring and step-by-step reconstruction of agent behavior |
+| Primitive | Purpose | Current status |
+|---|---|---|
+| **Agent Passport** | Issuer-signed Ed25519 identity, verified on every gated call | Enforced in gateway paths; production key lifecycle is future work |
+| **Intent Contract** | Locks the allowed actions to the user's goal; tamper-evident hash | Enforced in gateway paths |
+| **Operator Grant** | Deny-by-default ceiling on *tools* and *resource scope* — the authority the agent cannot widen | Enforced in current runtime paths; production control-plane auth is future work |
+| **Capability Token** | Short-lived, scoped, intent-bound, signed, use-limited permission | Validated by gateway; local/demo issuance requires `PACT_INSECURE_DEMO_API=true` |
+| **Provenance / Taint** | Tracks trusted / untrusted / secret / generated data and propagates it across steps | Enforced at coarse label level; durable object-level taint is future work |
+| **Policy Engine** | Evaluates identity + intent + capability + resource scope + provenance → decision + risk | Enforced in gateway paths |
+| **Tamper-Evident Ledger** | Hash-chained record of every attempted action | Implemented; append-only external anchoring is future work |
+| **SOC Dashboard + Replay** | Visual monitoring and step-by-step reconstruction of agent behavior | Implemented for local/demo review |
 
 **Least privilege from the operator, not the agent.** An operator *grant* defines
 the hard ceiling — which tools, and an allowlist of resources per type (email
 domains, URL hosts, file-path globs). The default grant is deny-by-default: no
 outbound email, secret reads, or shell until explicitly authorized. The agent's
 per-task intent can only narrow within the grant.
+
+Current local demo endpoints that create agent keys or issue capability tokens
+are explicitly gated by `PACT_INSECURE_DEMO_API=true`. Production deployments
+need authenticated, tenant-scoped authority services before exposing those
+control-plane operations.
 
 **Policy rules (R1–R12).** Full spec in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
@@ -106,6 +111,20 @@ uv run --project backend --active pytest -q -c backend/pyproject.toml backend/te
 If another environment is active in your shell, activate `./.venv` first or
 run the backend directly with `.venv/bin/uvicorn ...` to avoid `uv` creating
 `backend/.venv`.
+
+### 60-second local demo
+
+Run the deterministic allow/block/tamper demo from the repo root:
+
+```bash
+./scripts/live_demo.sh
+```
+
+It starts the backend if needed, runs one allowed workflow, multiple blocked or
+approval-gated workflows, verifies the ledger, and demonstrates tamper
+detection. The script enables `PACT_INSECURE_DEMO_API=true` for local demo
+authority endpoints; do not expose that mode on an untrusted network. See
+[examples/README.md](examples/README.md).
 
 ### Claude Code plugin
 
@@ -170,8 +189,12 @@ Go · Bubble Tea · Lipgloss for the agent TUI.
 | Document | Description |
 |---|---|
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Protocol spec: primitives, security model, policy rules, risk scoring, threat model |
+| [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Practical threat model: assets, trust boundaries, adversaries, known gaps |
 | [docs/API.md](docs/API.md) | REST API reference — endpoints, request/response, curl examples |
 | [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md) | End-to-end local testing walkthrough |
+| [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) | Production-readiness assessment and current blockers |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting policy and supported security scope |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, tests, and PR expectations |
 | [progress.md](progress.md) | Current status and changelog |
 | [road_to_prod.md](road_to_prod.md) | Roadmap from here to production |
 

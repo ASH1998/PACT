@@ -84,20 +84,6 @@
     "ledger_valid": true
   },
   {
-    "run_id": "run_15f759d6a160",
-    "agent_id": "pact-cli-b4fafad0",
-    "scenario_name": "interactive_cli",
-    "user_goal": "Assist the user with web, email, file, summarization, and safe diagnostic tasks.",
-    "status": "completed",
-    "started_at": "2026-05-30T17:41:18.158565",
-    "completed_at": "2026-05-30T17:41:30.030553",
-    "total_actions": 0,
-    "allowed_actions": 0,
-    "blocked_actions": 0,
-    "max_risk_score": 0,
-    "ledger_valid": true
-  },
-  {
     "run_id": "run_bd5add174982",
     "agent_id": "pact-cli-8faa35cc",
     "scenario_name": "interactive_cli",
@@ -247,20 +233,6 @@
     "completed_at": "2026-05-30T15:27:04.949133",
     "total_actions": 0,
     "allowed_actions": 0,
-    "blocked_actions": 0,
-    "max_risk_score": 0,
-    "ledger_valid": true
-  },
-  {
-    "run_id": "run_b8a58235f8bc",
-    "agent_id": "pact-cli-a18c7b7d",
-    "scenario_name": "interactive_cli",
-    "user_goal": "Assist the user with web, email, file, summarization, and safe diagnostic tasks.",
-    "status": "completed",
-    "started_at": "2026-05-30T13:06:22.404723",
-    "completed_at": "2026-05-30T15:18:21.342658",
-    "total_actions": 3,
-    "allowed_actions": 3,
     "blocked_actions": 0,
     "max_risk_score": 0,
     "ledger_valid": true
