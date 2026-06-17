@@ -30,12 +30,21 @@ class Settings(BaseModel):
     # Crypto
     passport_issuer_key_path: str = "./keys/issuer.key"
 
+    # Demo/development controls
+    allow_insecure_demo_api: bool = False
+
     # Paths
     base_dir: Path = Path(__file__).parent.parent
 
 
 def load_settings() -> Settings:
     """Load settings from environment variables with fallback defaults."""
+    def env_bool(name: str, default: bool = False) -> bool:
+        value = os.getenv(name)
+        if value is None:
+            return default
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
     return Settings(
         database_url=os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./pact.db"),
         host=os.getenv("HOST", "0.0.0.0"),
@@ -44,6 +53,7 @@ def load_settings() -> Settings:
         llm_api_key=os.getenv("LLM_API_KEY", ""),
         llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
         passport_issuer_key_path=os.getenv("PASSPORT_ISSUER_KEY_PATH", "./keys/issuer.key"),
+        allow_insecure_demo_api=env_bool("PACT_INSECURE_DEMO_API", False),
     )
 
 

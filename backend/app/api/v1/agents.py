@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.agent import Agent
+from app.api.v1.demo_guard import require_insecure_demo_api
 
 router = APIRouter()
 
@@ -29,8 +30,12 @@ class RegisterAgentRequest(BaseModel):
 
 
 @router.post("/register")
-async def register_agent(req: RegisterAgentRequest, db: AsyncSession = Depends(get_db)):
-    """Register an agent passport and return its private key (shown once)."""
+async def register_agent(
+    req: RegisterAgentRequest,
+    _: None = Depends(require_insecure_demo_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register a demo agent passport and return its private key (shown once)."""
     existing = await db.execute(select(Agent).where(Agent.agent_id == req.agent_id))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail=f"Agent {req.agent_id} already registered")

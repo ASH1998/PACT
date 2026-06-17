@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.demo_guard import require_insecure_demo_api
 from app.database import get_db
 
 router = APIRouter()
@@ -21,8 +22,12 @@ class IssueCapabilityRequest(BaseModel):
 
 
 @router.post("")
-async def issue_capability(req: IssueCapabilityRequest, db: AsyncSession = Depends(get_db)):
-    """Issue a capability token."""
+async def issue_capability(
+    req: IssueCapabilityRequest,
+    _: None = Depends(require_insecure_demo_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """Issue a demo capability token."""
     from app.core.factory import get_runtime
 
     runtime = get_runtime()

@@ -1,0 +1,31 @@
+# Security-critical areas require maintainer review.
+# Assumption: @ASH1998 is the current repository maintainer.
+
+* @ASH1998
+
+SECURITY.md @ASH1998
+CONTRIBUTING.md @ASH1998
+CODE_OF_CONDUCT.md @ASH1998
+GOVERNANCE.md @ASH1998
+.github/CODEOWNERS @ASH1998
+
+protocol/ @ASH1998
+docs/PROTOCOL.md @ASH1998
+docs/THREAT_MODEL.md @ASH1998
+docs/PRODUCTION_READINESS.md @ASH1998
+road_to_prod.md @ASH1998
+
+backend/app/crypto/ @ASH1998
+backend/app/core/ @ASH1998
+backend/app/services/ @ASH1998
+backend/app/api/ @ASH1998
+backend/app/models/ @ASH1998
+backend/app/tools/ @ASH1998
+backend/app/adapters/ @ASH1998
+backend/app/sdk.py @ASH1998
+pact_chat.py @ASH1998
+examples/grant.acme.yaml @ASH1998
+
+clients/pact-tui/ @ASH1998
+plugins/pact-codex/ @ASH1998
+plugins/pact-claude/ @ASH1998

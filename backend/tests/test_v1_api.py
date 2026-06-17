@@ -544,10 +544,60 @@ class TestV1Intents:
 
 
 # =========================================================================
+# V1 Agents Tests
+# =========================================================================
+
+class TestV1Agents:
+
+    async def test_register_agent_requires_demo_opt_in(self, client):
+        """POST /v1/agents/register rejects private-key issuance unless enabled."""
+        from app.config import settings
+
+        previous = settings.allow_insecure_demo_api
+        settings.allow_insecure_demo_api = False
+        try:
+            resp = await client.post(
+                "/v1/agents/register",
+                json={
+                    "agent_id": "guarded-agent",
+                    "owner": "test",
+                    "allowed_domains": ["respond_to_user"],
+                },
+            )
+        finally:
+            settings.allow_insecure_demo_api = previous
+
+        assert resp.status_code == 403
+        assert "demo-only" in resp.json()["detail"]
+
+
+# =========================================================================
 # V1 Capabilities Tests
 # =========================================================================
 
 class TestV1Capabilities:
+
+    async def test_issue_capability_requires_demo_opt_in(self, client):
+        """POST /v1/capabilities rejects demo authority issuance unless enabled."""
+        from app.config import settings
+
+        previous = settings.allow_insecure_demo_api
+        settings.allow_insecure_demo_api = False
+        try:
+            resp = await client.post(
+                "/v1/capabilities",
+                json={
+                    "agent_id": "test-agent",
+                    "intent_hash": "sha256:test",
+                    "capability": "email.send",
+                    "resource": "test@example.com",
+                },
+            )
+        finally:
+            settings.allow_insecure_demo_api = previous
+
+        assert resp.status_code == 403
+        assert "demo-only" in resp.json()["detail"]
 
     async def test_issue_capability(self, client):
         """POST /v1/capabilities issues a capability token."""
